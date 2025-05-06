@@ -28,7 +28,7 @@ export async function up(knex) {
                 .onDelete('CASCADE')
                 .onUpdate('CASCADE');
             table.text('message').notNullable();
-            table.string('organization').notNullable();
+            table.string('organization').nullable();
             table.string('branch').nullable();
             table.string('classification').notNullable();
             table.timestamp('created_at').notNullable().defaultTo(knex.fn.now()); // Изменено с date_created на created_at
@@ -44,6 +44,7 @@ export async function up(knex) {
             table.string('expansion').notNullable();
             table.integer('size').unsigned().notNullable();
             table.string('path').notNullable();
+            table.binary('data').notNullable();
             table.timestamp('created_at').notNullable().defaultTo(knex.fn.now()); // Добавлено поле created_at для согласованности с кодом
         });
 }

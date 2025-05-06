@@ -3,6 +3,7 @@ import logger from '../../utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import db from '../../../db/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -128,6 +129,9 @@ reportIssue.on('text', async (ctx) => {
                 await fs.writeFile(filePath, file.buffer);
             }
 
+            // Сохранение в базу данных
+            await saveTicketFromFolder(ctx.from.id.toString(), issueFolderName);
+
             await ctx.reply(`Ваше обращение успешно создано в папке ${issueFolderName}! Вы вернетесь в главное меню.`, {
                 reply_markup: { remove_keyboard: true }
             });
@@ -228,5 +232,59 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
         await ctx.reply('Извините, произошла ошибка при загрузке файла');
     }
 });
+
+// Функция сохранения в базу данных
+async function saveTicketFromFolder(telegramId, ticketFolder) {
+  try {
+    const issuePath = path.join('reports', telegramId, ticketFolder, 'issue.json');
+    const issueData = JSON.parse(await fs.readFile(issuePath, 'utf-8'));
+
+    // Find or create user
+    let user = await db('users').where({ id_telegram: telegramId }).first();
+    if (!user) {
+      user = await db('users')
+        .insert({
+          id_telegram: telegramId,
+          email: issueData.type,
+          created_at: db.fn.now(),
+        })
+        .returning('*')
+        .then(rows => rows[0]);
+    }
+
+    // Create ticket
+    const [ticket] = await db('tickets')
+      .insert({
+        user_id: user.id,
+        message: issueData.text,
+        organization: issueData.company,
+        branch: issueData.filial,
+        classification: issueData.classification,
+        created_at: db.fn.now(),
+      })
+      .returning('*');
+
+    // Save files with binary data
+    for (const file of issueData.files) {
+      const filePath = path.join('reports', telegramId, ticketFolder, file.name);
+      const fileStats = await fs.stat(filePath);
+      const fileData = await fs.readFile(filePath); // Читаем бинарные данные
+      await db('files').insert({
+        ticket_id: ticket.id,
+        title: file.description,
+        expansion: path.extname(file.name).slice(1),
+        size: fileStats.size,
+        path: filePath,
+        data: fileData, // Сохраняем бинарные данные
+        created_at: db.fn.now(),
+      });
+    }
+
+    return { ticket, user };
+  } catch (error) {
+    console.error(`Error saving ticket: ${error.message}`);
+    throw error;
+  }
+}
 
 export default reportIssue;

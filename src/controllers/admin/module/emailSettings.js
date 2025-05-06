@@ -10,8 +10,8 @@ export default function emailSettings(scene) {
         try {
             await ctx.deleteMessage();
             const config = await ConfigLoader.loadConfig();
-            logger.info('Loaded email config:', { email: config.general.email });
-            const { host, port, user,  password, secure, rejectUnauthorized} = config.general.email || {};
+            logger.info('Loaded email config:', { email: config.general });
+            const { host, port, user,  password, secure, rejectUnauthorized, support_email } = config.general.email || {};
 
             const keyboard = [
                 [
@@ -52,8 +52,14 @@ export default function emailSettings(scene) {
                 ],
                 [
                     {
-                        text: 'Тест отправки',
+                        text: 'Проверить раб-сть',
                         callback_data: 'test_email_settings'
+                    }
+                ],
+                [
+                    {
+                        text:`Почта для отправки обращений: ${support_email || 'не задан'}`,
+                        callback_data: 'support_email'
                     }
                 ],
                 [
@@ -189,6 +195,24 @@ export default function emailSettings(scene) {
         }
     });
 
+    // Обработка почты для отправки обращений
+    // Обработка изменения пользователя
+    scene.action('support_email', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Введите почтовый адрес для отправки обращений (например, user@domain.com):', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Отмена', callback_data: 'email_settings' }]
+                    ]
+                }
+            });
+            ctx.session.action = 'support_email';
+        } catch (error) {
+            logger.error(`Error in support_email action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при попытке изменить пользователя.');
+        }
+    });
     // Обработка теста отправки
     scene.action('test_email_settings', async (ctx) => {
         try {
@@ -290,6 +314,16 @@ export default function emailSettings(scene) {
                         }
                     });
                     break;
+
+                case 'support_email':
+                config.general.support_email.email = text;
+                await ConfigLoader.saveConfig(config);
+                await ctx.reply('Адрес успешно обновлен!', {
+                    reply_markup: {
+                        inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
+                    }
+                });
+                break;
 
                 default:
                     return;

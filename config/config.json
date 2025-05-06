@@ -110,7 +110,8 @@
       "password": "nvsimemwrehqhzzs",
       "secure": true,
       "rejectUnauthorized": true,
-      "port": 465
+      "port": 465,
+      "support_email": "ProlubnikovVV@rushydro.ru"
     },
     "commands": {}
   }
