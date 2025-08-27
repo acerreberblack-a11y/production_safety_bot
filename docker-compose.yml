@@ -4,6 +4,4 @@ services:
     build: .
     command: node src/bot.js
     env_file: .env
-    volumes:
-      - ./db:/usr/src/app/db
     restart: unless-stopped

@@ -252,7 +252,7 @@ ${ticketData.message || ''}`,
 
 // Периодически отправляем обращения из файловой системы
 const startReportEmailSender = () => {
-  const intervalMs = 24 * 60 * 60 * 1000; // 24 часа
+  const intervalMs = 60 * 1000; // 1 Минута
   sendReportsFromFolder().catch((err) =>
     logger.error(`Initial report send failed: ${err.message}`, { stack: err.stack })
   );
