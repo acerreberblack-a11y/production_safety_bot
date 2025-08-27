@@ -1,13 +1,16 @@
-import db from './client.js';
+import db from './db.js';
+import logger from '../src/utils/logger.js';
+
+// Выполнение миграций и сидов базы данных
 async function runMigrationsAndSeeds() {
   try {
     await db.migrate.latest();
-    console.log('Миграции выполнены');
+    logger.info('Миграции выполнены');
     await db.seed.run();
-    console.log('Сиды выполнены');
+    logger.info('Сиды выполнены');
     process.exit(0);
   } catch (err) {
-    console.error('Ошибка:', err);
+    logger.error(`Ошибка выполнения миграций: ${err.message}`, { stack: err.stack });
     process.exit(1);
   }
 }

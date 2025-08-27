@@ -280,8 +280,9 @@ export default function emailSettings(scene) {
                             [{ text: 'Назад', callback_data: 'email_settings' }]
                         ]
                     }
-                });
-            }
+  });
+}
+
         } catch (error) {
             logger.error(`Ошибка в test_email_settings: ${error.message}`, { stack: error.stack });
             await ctx.reply(`Ошибка при тестировании email: ${error.message}`);

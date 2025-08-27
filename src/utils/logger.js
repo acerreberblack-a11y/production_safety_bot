@@ -1,5 +1,6 @@
 import winston from 'winston';
 
+// Настройка логгера для вывода информации в файлы и консоль
 const logger = winston.createLogger({
     level: 'debug',
     format: winston.format.combine(
