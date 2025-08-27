@@ -46,7 +46,6 @@ function buildTicketsKeyboard(page, totalPages) {
 
     return { reply_markup: { inline_keyboard: keyboard } };
 }
-
 function formatProfileMessage(user, telegramId) {
     const organization = user?.organization || 'Не указано';
     const branch = user?.branch || 'Не указан';
@@ -260,7 +259,6 @@ welcome.action(['confirm_account', 'change_email'], async (ctx) => {
         await ctx.reply('Не удалось перейти к подтверждению.');
     }
 });
-
 welcome.action('tickets_next', async (ctx) => {
     try {
         await ctx.answerCbQuery();
