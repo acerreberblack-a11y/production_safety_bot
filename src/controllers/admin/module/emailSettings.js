@@ -58,18 +58,6 @@ export default function emailSettings(scene) {
                 ],
                 [
                     {
-                        text: `📝 Тема: ${ticket_subject || 'по умолчанию'}`,
-                        callback_data: 'edit_ticket_subject'
-                    }
-                ],
-                [
-                    {
-                        text: `📰 Шаблон письма: ${ticket_template ? 'изменен' : 'по умолчанию'}`,
-                        callback_data: 'edit_ticket_template'
-                    }
-                ],
-                [
-                    {
                         text:`Почта для отправки обращений: ${support_email || 'не задан'}`,
                         callback_data: 'support_email'
                     }

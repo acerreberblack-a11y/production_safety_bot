@@ -115,7 +115,7 @@
       "priority": 2
     }
   },
-  "administrators": [123456789, 987654321],
+  "administrators": [276589766],
   "general": {
     "email": {
       "host": "smtp.yandex.ru",
@@ -125,7 +125,7 @@
       "rejectUnauthorized": true,
       "port": 465,
       "support_email": "ProlubnikovVV@rushydro.ru",
-      "ticket_subject": "Ticket #{{ticketId}} - {{classification}}",
+      "ticket_subject": "Обращение #{{ticketId}} - {{classification}} /  Чат-бот \"Безопасность производства",
       "ticket_template": ""
     },
     "commands": {}

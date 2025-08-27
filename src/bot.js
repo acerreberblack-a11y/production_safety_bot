@@ -20,7 +20,7 @@ dotenv.config();
 
 let { BOT_TOKEN, PROXY_URL } = process.env;
 
-BOT_TOKEN = '7169869479:AAF3SOaQe2MYiNOb5e_fi3GcUPtADWIIsyM';
+BOT_TOKEN = '8143686943:AAHp_hbVpYhDYdHVCfqM4Rl_iTvkrspWsZU';
 
 const scenes = [welcome, description, ticketType, emailAuth, organization, classification, reportIssue, admin];
 
@@ -54,7 +54,7 @@ class Bot {
 
   setupMiddleware() {
     const localSession = new LocalSession({
-      database: 'sessions.json',
+      database: 'sessions_10.json',
       property: 'session',
       storage: LocalSession.storageFileAsync,
       format: {
@@ -67,7 +67,19 @@ class Bot {
 
     this.bot.use(userCheckMiddleware);
     this.bot.use(localSession.middleware());
-    this.bot.use(stage.middleware());
+        this.bot.use(stage.middleware());
+    this.bot.command('menu', async (ctx) => {
+      try {
+        await ctx.scene.leave();
+        ctx.session = null;
+        ctx.session = { messages: [], sceneData: {} };
+        await ctx.scene.enter('welcome');
+        logger.info(`User ${ctx.from.id} returned to welcome menu`);
+      } catch (error) {
+        logger.error(`Menu handler error: ${error.message}`, { stack: error.stack });
+        await ctx.reply('An error occurred. Please try again.');
+      }
+    });
   }
 
   registerHandlers() {
