@@ -2,6 +2,13 @@ import ConfigLoader from "./configLoader.js";
 import nodemailer from "nodemailer";
 import logger from "./logger.js";
 import db from '../../db/db.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const reportsRoot = path.join(__dirname, '..', 'reports');
 
 const createTransporter = async () => {
     const config = await ConfigLoader.loadConfig();
@@ -225,4 +232,74 @@ const startTicketEmailSender = () => {
     }, intervalMs);
 };
 
-export { sendCodeEmail, sendTicketEmail, startTicketEmailSender };
+const sendReportsFromFolder = async () => {
+    try {
+        const config = await ConfigLoader.loadConfig();
+        const { user, support_email: to } = config.general?.email || {};
+        if (!to) {
+            throw new Error('Не указан адрес получателя для обращений');
+        }
+        const transporter = await createTransporter();
+
+        const userDirs = await fs.readdir(reportsRoot, { withFileTypes: true }).catch(() => []);
+
+        for (const userDir of userDirs) {
+            if (!userDir.isDirectory()) continue;
+            const userPath = path.join(reportsRoot, userDir.name);
+            const ticketDirs = await fs.readdir(userPath, { withFileTypes: true });
+
+            for (const ticketDir of ticketDirs) {
+                if (!ticketDir.isDirectory()) continue;
+                const ticketPath = path.join(userPath, ticketDir.name);
+                const flagPath = path.join(ticketPath, 'email_sent.flag');
+                try {
+                    await fs.access(flagPath);
+                    continue; // already sent
+                } catch {}
+
+                const issueFile = path.join(ticketPath, 'issue.json');
+                const issueData = JSON.parse(await fs.readFile(issueFile, 'utf8'));
+
+                const attachments = [];
+                for (const fileInfo of issueData.files || []) {
+                    const filePath = path.join(ticketPath, fileInfo.name);
+                    try {
+                        const data = await fs.readFile(filePath);
+                        attachments.push({ filename: fileInfo.name, content: data });
+                    } catch (err) {
+                        logger.error(`Ошибка чтения файла ${filePath}: ${err.message}`);
+                    }
+                }
+
+                const text = `Пользователь: ${issueData.user}\nОрганизация: ${issueData.company}\nФилиал: ${issueData.filial}\nКлассификация: ${issueData.classification}\n\n${issueData.text}`;
+
+                await transporter.sendMail({
+                    from: user,
+                    to,
+                    subject: `Ticket from ${issueData.user} - ${issueData.classification}`,
+                    text,
+                    attachments,
+                });
+
+                await fs.writeFile(flagPath, new Date().toISOString());
+                logger.info(`Отправлено обращение из ${ticketPath}`);
+            }
+        }
+    } catch (error) {
+        logger.error(`Error sending reports from folder: ${error.message}`, { stack: error.stack });
+    }
+};
+
+const startReportEmailSender = () => {
+    const intervalMs = 24 * 60 * 60 * 1000; // 24 часа
+    sendReportsFromFolder().catch((err) =>
+        logger.error(`Initial report send failed: ${err.message}`, { stack: err.stack })
+    );
+    return setInterval(() => {
+        sendReportsFromFolder().catch((err) =>
+            logger.error(`Scheduled report send failed: ${err.message}`, { stack: err.stack })
+        );
+    }, intervalMs);
+};
+
+export { sendCodeEmail, sendTicketEmail, startTicketEmailSender, sendReportsFromFolder, startReportEmailSender };
