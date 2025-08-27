@@ -41,7 +41,8 @@ organization.enter(async (ctx) => {
             ['Назад'], ['Отменить заполнение']
         ];
 
-        await ctx.reply('Выберите организацию:', {
+        const orgConfig = config.controllers?.organization;
+        await ctx.reply(orgConfig?.text || 'Выберите организацию:', {
             reply_markup: {
                 keyboard: keyboard,
                 resize_keyboard: true,

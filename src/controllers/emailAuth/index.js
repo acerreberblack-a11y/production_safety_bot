@@ -1,7 +1,8 @@
 import { Scenes } from 'telegraf';
 import logger from '../../utils/logger.js';
 import { findUserByTelegramId, updateUser } from '../../../db/users.js';
-import { sendCodeEmail } from '../../utils/emailConfig.js'
+import { sendCodeEmail } from '../../utils/emailConfig.js';
+import ConfigLoader from '../../utils/configLoader.js';
 
 const emailAuth = new Scenes.BaseScene('emailAuth');
 
@@ -23,7 +24,9 @@ emailAuth.enter(async (ctx) => {
 
         ctx.session.email = null;
         ctx.session.authCode = null;
-        await ctx.reply('Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.', {
+        const config = await ConfigLoader.loadConfig();
+        const authConfig = config.controllers?.emailAuth;
+        await ctx.reply(authConfig?.text || 'Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.', {
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: [[{ text: 'Отменить заполнение', callback_data: 'cancel_auth' }]] },
         });

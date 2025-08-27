@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db from '../../../db/db.js';
+import ConfigLoader from '../../utils/configLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,11 +18,20 @@ const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 МБ
 // Максимальный общий объем файлов (24 МБ в байтах)
 const MAX_TOTAL_SIZE = 24 * 1024 * 1024; // 24 МБ
 
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024);
+const MAX_TOTAL_SIZE_MB = MAX_TOTAL_SIZE / (1024 * 1024);
+
 reportIssue.enter(async (ctx) => {
     try {
+        const config = await ConfigLoader.loadConfig();
+        const reportConfig = config.controllers?.reportIssue;
+        const textTemplate = reportConfig?.text || 'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). Максимум {MAX_FILES} файлов, размер каждого файла не более {MAX_FILE_SIZE} МБ, общий объем не более {MAX_TOTAL_SIZE} МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.';
+        const messageText = textTemplate
+            .replace('{MAX_FILES}', MAX_FILES)
+            .replace('{MAX_FILE_SIZE}', MAX_FILE_SIZE_MB)
+            .replace('{MAX_TOTAL_SIZE}', MAX_TOTAL_SIZE_MB);
         await ctx.reply(
-            'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). ' +
-            `Максимум ${MAX_FILES} файлов, размер каждого файла не более 20 МБ, общий объем не более 24 МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.`,
+            messageText,
             {
                 reply_markup: {
                     keyboard: [['Готово'], ['Назад'], ['Отменить заполнение']],

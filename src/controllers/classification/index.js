@@ -51,7 +51,8 @@ classification.enter(async (ctx) => {
             ['Назад'],['Отменить заполнение']
         ];
 
-        await ctx.reply('Выберите классификацию обращения:', {
+        const classConfig = config.controllers?.classification;
+        await ctx.reply(classConfig?.text || 'Выберите классификацию обращения:', {
             reply_markup: {
                 keyboard: keyboard,
                 resize_keyboard: true,
