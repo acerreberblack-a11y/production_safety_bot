@@ -302,6 +302,7 @@ welcome.action('manager_admin', async (ctx) => {
     const lastMessage = ctx.session.lastBotMessage;
     if (!lastMessage) {
       throw new Error('No last message found in session');
+
     }
 
     const messageOptions = {
