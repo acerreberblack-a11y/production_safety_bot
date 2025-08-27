@@ -51,7 +51,7 @@ welcome.enter(async (ctx) => {
         ];
 
         // Если пользователь — администратор (role_id = 3), добавляем кнопку "Управление"
-        if (ctx.session.user?.role_id === 3) { // Предполагается, что поле называется role_id
+        if (ctx.session.user?.role_id === 2) { // Предполагается, что поле называется role_id
             keyboard = [
                 [
                     { text: 'Создать обращение', callback_data: 'create_ticket' },

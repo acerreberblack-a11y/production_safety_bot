@@ -30,4 +30,4 @@ export default {
 //npx knex migrate:latest
 //npx knex seed:make initial_data
 //npx knex seed:run
-
+export default config;
