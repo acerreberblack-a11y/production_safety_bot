@@ -22,8 +22,11 @@ async function createUser(telegramId, username = null, firstName = null, lastNam
 async function findUserByTelegramId(telegramId) {
     try {
         return await db('users')
-            .where({ id_telegram: telegramId })
-            .first(); // Работает одинаково в обоих диалектах
+            .leftJoin('tickets', 'users.id', 'tickets.user_id')
+            .select('users.*', 'tickets.organization as organization', 'tickets.branch as branch')
+            .where('users.id_telegram', telegramId)
+            .orderBy('tickets.created_at', 'desc')
+            .first(); // Возвращает пользователя с последними организацией и филиалом
     } catch (error) {
         console.error(`Error finding user by Telegram ID: ${error.message}`);
         throw error;
