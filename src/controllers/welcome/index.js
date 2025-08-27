@@ -95,6 +95,7 @@ welcome.enter(async (ctx) => {
         ctx.session.lastBotMessage = {
             messageId: message.message_id,
             chatId: message.chat.id,
+            text: welcomeConfig.text,
             date: new Date().toISOString(),
             type: welcomeConfig.image?.enabled ? 'photo' : 'text'
         };
