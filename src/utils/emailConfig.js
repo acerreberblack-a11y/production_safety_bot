@@ -1,9 +1,9 @@
-import ConfigLoader from "./configLoader.js";
-import nodemailer from "nodemailer";
-import logger from "./logger.js";
+import nodemailer from 'nodemailer';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from './logger.js';
+import ConfigLoader from './configLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,23 +59,22 @@ const defaultHtmlTemplate = `
       `;
 
 // Экранируем специальные HTML-символы
-const escapeHtml = (text = "") =>
-  text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+const escapeHtml = (text = '') => text
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 // Подставляем данные в шаблон вида {{key}}
-const applyTemplate = (template, data) =>
-  (template || "").replace(/{{\s*(\w+)\s*}}/g, (_, key) => data[key] ?? "");
+const applyTemplate = (template, data) => (template || '').replace(/{{\s*(\w+)\s*}}/g, (_, key) => data[key] ?? '');
 
 // Создаём транспорт для отправки почты
 const createTransporter = async () => {
   const config = await ConfigLoader.loadConfig();
-  const { host, port, secure, user, password, rejectUnauthorized } =
-    config.general?.email || {};
+  const {
+    host, port, secure, user, password, rejectUnauthorized,
+  } = config.general?.email || {};
 
   if (!host || !user || !password) {
     throw new Error('Не заданы параметры почты');
@@ -91,21 +90,20 @@ const createTransporter = async () => {
 };
 
 // Формирует HTML-список вложений
-const buildAttachmentsHtml = (files) =>
-  (files || []).map((file, index) => {
-    const ext = escapeHtml(
-      file.expansion || (file.name ? file.name.split('.').pop() : '') || ''
-    );
-    const title = escapeHtml(file.title || file.description || '');
-    const name = `Вложение №${index + 1}.${ext}`;
-    const titlePart = title ? ` — ${title}` : '';
-    return `
+const buildAttachmentsHtml = (files) => (files || []).map((file, index) => {
+  const ext = escapeHtml(
+    file.expansion || (file.name ? file.name.split('.').pop() : '') || '',
+  );
+  const title = escapeHtml(file.title || file.description || '');
+  const name = `Вложение №${index + 1}.${ext}`;
+  const titlePart = title ? ` — ${title}` : '';
+  return `
       <li style="margin:6px 0;background:#f5f5f5;padding:10px;border-radius:6px;list-style:none;display:flex;align-items:center;">
         <span style="display:inline-flex;width:24px;height:24px;margin-right:8px;opacity:.7">📎</span>
         <span style="color:#374151">${name}${titlePart}</span>
       </li>
     `;
-  }).join('');
+}).join('');
 
 // Формируем HTML-письмо для обращения
 const buildHtmlContent = (ticket, attachmentsHtml, template = defaultHtmlTemplate) => {
@@ -151,8 +149,8 @@ const sendCodeEmail = async (to, code) => {
       from: user,
       to,
       subject: 'Код подтверждения',
-      html,                          // ← HTML содержимое по умолчанию
-      text: `Ваш код: ${code}`,      // fallback
+      html, // ← HTML содержимое по умолчанию
+      text: `Ваш код: ${code}`, // fallback
     });
   } catch (error) {
     logger.error(`Ошибка при отправке email: ${error.message}`, { stack: error.stack });
@@ -163,7 +161,9 @@ const sendCodeEmail = async (to, code) => {
 const sendReportsFromFolder = async () => {
   try {
     const config = await ConfigLoader.loadConfig();
-    const { user, support_email: to, ticket_subject, ticket_template } = config.general?.email || {};
+    const {
+      user, support_email: to, ticket_subject, ticket_template,
+    } = config.general?.email || {};
     if (!to) throw new Error('Не указан адрес получателя для обращений');
 
     const transporter = await createTransporter();
@@ -205,10 +205,9 @@ const sendReportsFromFolder = async () => {
           };
 
           // HTML по умолчанию
-          const effectiveTemplate =
-            (typeof ticket_template === 'string' && ticket_template.trim())
-              ? ticket_template
-              : defaultHtmlTemplate;
+          const effectiveTemplate = (typeof ticket_template === 'string' && ticket_template.trim())
+            ? ticket_template
+            : defaultHtmlTemplate;
 
           const htmlContent = buildHtmlContent(ticketData, attachmentsHtml, effectiveTemplate);
 
@@ -253,13 +252,9 @@ ${ticketData.message || ''}`,
 // Периодически отправляем обращения из файловой системы
 const startReportEmailSender = () => {
   const intervalMs = 60 * 1000; // 1 Минута
-  sendReportsFromFolder().catch((err) =>
-    logger.error(`Initial report send failed: ${err.message}`, { stack: err.stack })
-  );
+  sendReportsFromFolder().catch((err) => logger.error(`Initial report send failed: ${err.message}`, { stack: err.stack }));
   return setInterval(() => {
-    sendReportsFromFolder().catch((err) =>
-      logger.error(`Scheduled report send failed: ${err.message}`, { stack: err.stack })
-    );
+    sendReportsFromFolder().catch((err) => logger.error(`Scheduled report send failed: ${err.message}`, { stack: err.stack }));
   }, intervalMs);
 };
 

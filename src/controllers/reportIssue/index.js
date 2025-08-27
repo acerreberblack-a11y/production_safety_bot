@@ -1,8 +1,8 @@
 import { Scenes } from 'telegraf';
-import logger from '../../utils/logger.js';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../../utils/logger.js';
 import db from '../../../db/db.js';
 import ConfigLoader from '../../utils/configLoader.js';
 
@@ -25,9 +25,8 @@ reportIssue.enter(async (ctx) => {
   try {
     const config = await ConfigLoader.loadConfig();
     const reportConfig = config.controllers?.reportIssue;
-    const textTemplate =
-      reportConfig?.text ||
-      'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). Максимум {MAX_FILES} файлов, размер каждого файла не более {MAX_FILE_SIZE} МБ, общий объем не более {MAX_TOTAL_SIZE} МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.';
+    const textTemplate = reportConfig?.text
+      || 'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). Максимум {MAX_FILES} файлов, размер каждого файла не более {MAX_FILE_SIZE} МБ, общий объем не более {MAX_TOTAL_SIZE} МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.';
     const messageText = textTemplate
       .replace('{MAX_FILES}', MAX_FILES)
       .replace('{MAX_FILE_SIZE}', MAX_FILE_SIZE_MB)
@@ -183,7 +182,7 @@ reportIssue.on('text', async (ctx) => {
       // Сохранение в базу данных
       await saveTicketFromFolder(ctx.from.id.toString(), issueFolderName);
 
-      await ctx.reply(`Ваше обращение успешно создано!\nВы вернетесь в главное меню.`, {
+      await ctx.reply('Ваше обращение успешно создано!\nВы вернетесь в главное меню.', {
         reply_markup: { remove_keyboard: true },
       });
 
@@ -289,11 +288,11 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
 
     const freeSpace = MAX_TOTAL_SIZE - ctx.session.issueData.totalSize;
     await ctx.reply(
-      `Файл ${fileName} добавлен${caption ? ' с описанием: ' + caption : ''}. Осталось ${
+      `Файл ${fileName} добавлен${caption ? ` с описанием: ${caption}` : ''}. Осталось ${
         MAX_FILES - ctx.session.issueData.files.length
       } из ${MAX_FILES} файлов. Свободно ${(freeSpace / (1024 * 1024)).toFixed(2)} МБ из 24 МБ.`,
     );
-    logger.info(`User ${ctx.from.id} uploaded file ${fileName}${caption ? ' with caption: ' + caption : ''}`);
+    logger.info(`User ${ctx.from.id} uploaded file ${fileName}${caption ? ` with caption: ${caption}` : ''}`);
   } catch (error) {
     logger.error(`Error handling file upload: ${error.message}`);
     await ctx.reply('Извините, произошла ошибка при загрузке файла');

@@ -7,7 +7,7 @@ const config = {
     port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
   },
   pool: {
     min: 2,
@@ -16,21 +16,21 @@ const config = {
       conn.query('SELECT 1;', (err) => {
         done(err, conn);
       });
-    }
+    },
   },
   migrations: {
     directory: './database/migrations',
-    tableName: 'knex_migrations'
+    tableName: 'knex_migrations',
   },
   seeds: {
-    directory: './database/seeds'
+    directory: './database/seeds',
   },
   useNullAsDefault: true,
-  searchPath: ['bot_schema', 'public']
+  searchPath: ['bot_schema', 'public'],
 };
 
 export default config;
 
-//npx knex migrate:latest
-//npx knex seed:make initial_data
-//npx knex seed:run
+// npx knex migrate:latest
+// npx knex seed:make initial_data
+// npx knex seed:run

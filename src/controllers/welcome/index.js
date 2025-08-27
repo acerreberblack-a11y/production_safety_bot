@@ -1,7 +1,7 @@
 import { Scenes } from 'telegraf';
-import logger from '../../utils/logger.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../../utils/logger.js';
 import ConfigLoader from '../../utils/configLoader.js';
 import { findUserByTelegramId, getTicketsByUserId } from '../../../db/users.js';
 
@@ -21,7 +21,7 @@ function formatTicketsPage(tickets, page) {
     const date = new Date(ticket.created_at).toLocaleString('ru-RU');
     let text = ticket.message || '';
     if (text.length > MAX_TICKET_TEXT_LENGTH) {
-      text = text.slice(0, MAX_TICKET_TEXT_LENGTH - 3) + '...';
+      text = `${text.slice(0, MAX_TICKET_TEXT_LENGTH - 3)}...`;
     }
     message += `\n#${ticket.id} | ${date}\n${text}\n`;
   }
@@ -53,12 +53,12 @@ function formatProfileMessage(user, telegramId) {
   const status = user?.email ? 'Подтвержден' : 'Не подтвержден';
 
   return (
-    `Ваш профиль:\n` +
-    `ID: ${telegramId}\n` +
-    `Организация: ${organization}\n` +
-    `Филиал: ${branch}\n` +
-    `Email: ${email}\n` +
-    `Статус: ${status}`
+    'Ваш профиль:\n'
+    + `ID: ${telegramId}\n`
+    + `Организация: ${organization}\n`
+    + `Филиал: ${branch}\n`
+    + `Email: ${email}\n`
+    + `Статус: ${status}`
   );
 }
 
@@ -76,7 +76,7 @@ welcome.enter(async (ctx) => {
       ctx.session = {
         __scenes: ctx.session?.__scenes || { current: 'welcome', state: {} },
         lastBotMessage: null,
-        user: null
+        user: null,
       };
       logger.debug('Session initialized in welcome scene');
     } else {
@@ -101,12 +101,12 @@ welcome.enter(async (ctx) => {
     }
 
     // Формируем клавиатуру по умолчанию
-    let keyboard = [
+    const keyboard = [
       [
         { text: 'Создать обращение', callback_data: 'create_ticket' },
-        { text: 'Мои обращения', callback_data: 'my_tickets' }
+        { text: 'Мои обращения', callback_data: 'my_tickets' },
       ],
-      [{ text: 'Профиль', callback_data: 'profile' }]
+      [{ text: 'Профиль', callback_data: 'profile' }],
     ];
 
     // Если пользователь является администратором, добавляем кнопку "Управление"
@@ -118,8 +118,8 @@ welcome.enter(async (ctx) => {
     const messageOptions = {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: keyboard
-      }
+        inline_keyboard: keyboard,
+      },
     };
 
     let message;
@@ -130,8 +130,8 @@ welcome.enter(async (ctx) => {
           { source: imagePath },
           {
             caption: welcomeConfig.text,
-            ...messageOptions
-          }
+            ...messageOptions,
+          },
         );
       } catch (photoError) {
         logger.error(`Failed to load welcome image: ${photoError.message}`);
@@ -147,7 +147,7 @@ welcome.enter(async (ctx) => {
       chatId: message.chat.id,
       text: welcomeConfig.text,
       date: new Date().toISOString(),
-      type: welcomeConfig.image?.enabled ? 'photo' : 'text'
+      type: welcomeConfig.image?.enabled ? 'photo' : 'text',
     };
 
     logger.info(`User ${ctx.from.id} received welcome message`);
@@ -167,8 +167,8 @@ welcome.action('create_ticket', async (ctx) => {
     const messageOptions = {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [] // Убираем кнопки после переключения
-      }
+        inline_keyboard: [], // Убираем кнопки после переключения
+      },
     };
 
     // Обновляем сообщение в зависимости от типа, оставляя текст без изменений
@@ -198,7 +198,7 @@ welcome.action('my_tickets', async (ctx) => {
 
     ctx.session.ticketPagination = {
       tickets,
-      page: 0
+      page: 0,
     };
 
     const totalPages = Math.ceil(tickets.length / TICKETS_PER_PAGE) || 1;
@@ -216,7 +216,7 @@ welcome.action('my_tickets', async (ctx) => {
 welcome.action('profile', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    const user = ctx.session.user;
+    const { user } = ctx.session;
     const message = formatProfileMessage(user, ctx.from.id);
 
     const buttons = [];
@@ -302,14 +302,13 @@ welcome.action('manager_admin', async (ctx) => {
     const lastMessage = ctx.session.lastBotMessage;
     if (!lastMessage) {
       throw new Error('No last message found in session');
-
     }
 
     const messageOptions = {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [] // Убираем кнопки после переключения
-      }
+        inline_keyboard: [], // Убираем кнопки после переключения
+      },
     };
 
     // Обновляем сообщение в зависимости от типа, оставляя текст без изменений
@@ -329,4 +328,3 @@ welcome.action('manager_admin', async (ctx) => {
 });
 
 export default welcome;
-

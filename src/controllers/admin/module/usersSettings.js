@@ -1,4 +1,6 @@
-import logger from '../../../utils/logger.js';
+import archiver from 'archiver';
+import path from 'path';
+import { PassThrough } from 'stream';
 import {
   searchUsers,
   getUserDetails,
@@ -8,21 +10,17 @@ import {
   getTicketsByUserId,
   getTicketDetails,
 } from '../../../../db/users.js';
-import archiver from 'archiver';
-import path from 'path';
-import { PassThrough } from 'stream';
+import logger from '../../../utils/logger.js';
 
 export default function user_settings(scene) {
   // === helpers ===
   const kb = (rows) => ({ reply_markup: { inline_keyboard: rows } });
 
   /** универсальный ответ с «Назад» */
-  const replyWithBack = (ctx, text, backCbData, extraRows = []) =>
-    ctx.reply(text, kb([...extraRows, [{ text: 'Назад', callback_data: backCbData }]]));
+  const replyWithBack = (ctx, text, backCbData, extraRows = []) => ctx.reply(text, kb([...extraRows, [{ text: 'Назад', callback_data: backCbData }]]));
 
   /** читаем editScene из сессии (поддерживаем оба варианта хранения) */
-  const getEditScene = (ctx) =>
-    (ctx.session?.sceneData?.editScene ?? ctx.session?.editScene);
+  const getEditScene = (ctx) => (ctx.session?.sceneData?.editScene ?? ctx.session?.editScene);
 
   /** показать карточку обращения */
   const showTicketView = async (ctx, ticket, files) => {
@@ -169,13 +167,12 @@ export default function user_settings(scene) {
       archive.pipe(stream);
 
       const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
-      let info =
-        `Организация: ${ticket.organization || 'Не указано'}\n` +
-        `Филиал: ${ticket.branch || 'Не указано'}\n` +
-        `Классификация: ${ticket.classification}\n` +
-        `Дата отправки: ${createdAt}\n\n` +
-        `Текст обращения:\n${ticket.message}\n\n` +
-        'Вложения:\n';
+      let info = `Организация: ${ticket.organization || 'Не указано'}\n`
+        + `Филиал: ${ticket.branch || 'Не указано'}\n`
+        + `Классификация: ${ticket.classification}\n`
+        + `Дата отправки: ${createdAt}\n\n`
+        + `Текст обращения:\n${ticket.message}\n\n`
+        + 'Вложения:\n';
       if (files && files.length) {
         info += files.map((f, i) => `${i + 1}. ${path.basename(f.path || `file_${f.id || ''}`)} - ${f.title || ''}`).join('\n');
       } else {
