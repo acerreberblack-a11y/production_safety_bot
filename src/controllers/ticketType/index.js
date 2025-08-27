@@ -40,7 +40,7 @@ ticketType.enter(async (ctx) => {
                         { text: 'Не анонимная', callback_data: 'non_anonymous' }
                     ],
                     [
-                        { text: 'Отменить', callback_data: 'cancel' }
+                        { text: 'Отменить заполнение', callback_data: 'cancel' }
                     ]
                 ]
             }
@@ -154,6 +154,8 @@ ticketType.action('cancel', async (ctx) => {
                 { reply_markup: {} } // Пустая клавиатура
             );
         }
+        delete ctx.session.ticketType;
+        await ctx.reply('Заполнение обращения было отменено.');
         await ctx.scene.enter('welcome');
         logger.info(`User ${ctx.from.id} cancelled ticket creation`);
     } catch (error) {

@@ -1,4 +1,4 @@
-export default {
+const config = {
     client: 'pg',
     connection: {
         host: '192.168.126.128',
@@ -27,7 +27,8 @@ export default {
     searchPath: ['bot_schema', 'public']
 };
 
+export default config;
+
 //npx knex migrate:latest
 //npx knex seed:make initial_data
 //npx knex seed:run
-export default config;
