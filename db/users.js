@@ -1,5 +1,4 @@
-import knex from 'knex';
-import db from '../db/knexfile.js';
+import db from './client.js';
 
 async function createUser(telegramId, username = null, firstName = null, lastName = null, linkChat = null, email = null) {
     try {

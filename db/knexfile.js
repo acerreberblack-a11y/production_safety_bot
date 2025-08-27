@@ -1,6 +1,4 @@
-import knex from 'knex';
-
-const db = knex({
+export default {
     client: 'pg',
     connection: {
         host: '192.168.126.128',
@@ -27,9 +25,7 @@ const db = knex({
     },
     useNullAsDefault: true,
     searchPath: ['bot_schema', 'public']
-});
-
-export default db;
+};
 
 //npx knex migrate:latest
 //npx knex seed:make initial_data

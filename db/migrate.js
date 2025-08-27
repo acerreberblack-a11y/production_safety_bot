@@ -1,4 +1,4 @@
-import db from'./knexfile.js';
+import db from './client.js';
 
 db.migrate.latest()
     .then(() => {
