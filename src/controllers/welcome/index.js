@@ -3,7 +3,7 @@ import logger from '../../utils/logger.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import ConfigLoader from '../../utils/configLoader.js';
-import { findUserByTelegramId } from '../../../db/users.js';
+import { findUserByTelegramId, getTicketsByUserId } from '../../../db/users.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +95,7 @@ welcome.enter(async (ctx) => {
         ctx.session.lastBotMessage = {
             messageId: message.message_id,
             chatId: message.chat.id,
+            text: welcomeConfig.text,
             date: new Date().toISOString(),
             type: welcomeConfig.image?.enabled ? 'photo' : 'text'
         };
@@ -148,7 +149,58 @@ welcome.action('create_ticket', async (ctx) => {
 });
 
 welcome.action('my_tickets', async (ctx) => {
-   return await ctx.answerCbQuery('Функция "Мои обращения" пока в разработке');
+    try {
+        const userId = ctx.session.user?.id;
+        if (!userId) {
+            throw new Error('User not found in session');
+        }
+
+        const tickets = await getTicketsByUserId(userId);
+
+        await ctx.answerCbQuery();
+
+        const replyOptions = {
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Назад', callback_data: 'back_to_welcome' }]]
+            }
+        };
+
+        if (!tickets.length) {
+            return await ctx.reply('У вас пока нет обращений', replyOptions);
+        }
+
+        let message = 'Ваши обращения:\n';
+        for (const ticket of tickets) {
+            const date = new Date(ticket.created_at).toLocaleString('ru-RU');
+            message += `\n#${ticket.id} | ${date}\n${ticket.message}\n`;
+        }
+
+        if (message.length <= 4096) {
+            await ctx.reply(message.trim(), replyOptions);
+        } else {
+            const chunks = message.match(/[\s\S]{1,4000}/g) || [message];
+            for (let i = 0; i < chunks.length; i++) {
+                const options = i === chunks.length - 1 ? replyOptions : undefined;
+                await ctx.reply(chunks[i].trim(), options);
+            }
+        }
+
+        logger.info(`User ${ctx.from.id} requested ticket list`);
+    } catch (error) {
+        logger.error(`Error in my_tickets action: ${error.message}`);
+        await ctx.answerCbQuery('Не удалось получить обращения', { show_alert: true });
+    }
+});
+
+welcome.action('back_to_welcome', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        await ctx.deleteMessage().catch(() => {});
+        await ctx.scene.reenter();
+        logger.info(`User ${ctx.from.id} returned to welcome scene`);
+    } catch (error) {
+        logger.error(`Error in back_to_welcome action: ${error.message}`);
+    }
 });
 
 welcome.action('manager_admin', async (ctx) => {

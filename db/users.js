@@ -180,6 +180,34 @@ async function createFile(ticketId, title, expansion, size, path) {
     }
 }
 
+async function getTicketsByUserId(userId) {
+    try {
+        return await db('tickets')
+            .where({ user_id: userId })
+            .orderBy('created_at', 'desc');
+    } catch (error) {
+        console.error(`Error fetching tickets for user ${userId}: ${error.message}`);
+        throw error;
+    }
+}
+
+async function getStatistics() {
+    try {
+        const [users] = await db('users').count('id as count');
+        const [tickets] = await db('tickets').count('id as count');
+        const [files] = await db('files').count('id as count');
+
+        return {
+            userCount: Number(users.count),
+            ticketCount: Number(tickets.count),
+            fileCount: Number(files.count)
+        };
+    } catch (error) {
+        console.error(`Error getting statistics: ${error.message}`);
+        throw error;
+    }
+}
+
 export {
     createUser,
     findUserByTelegramId,
@@ -192,5 +220,7 @@ export {
     blockUser,
     deleteUser,
     createTicket,
-    createFile
+    createFile,
+    getTicketsByUserId,
+    getStatistics
 };
