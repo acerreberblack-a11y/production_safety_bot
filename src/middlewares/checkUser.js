@@ -27,7 +27,7 @@ export default async (ctx, next) => {
         firstName: ctx.from?.first_name || null,
         lastName: ctx.from?.last_name || null,
         linkChat: ctx.chat?.username ? `https://t.me/${ctx.chat.username}` : null,
-        email: null // Здесь может быть логика получения email
+        email: null, // Здесь может быть логика получения email
       };
 
       // Ищем пользователя в базе
@@ -41,7 +41,7 @@ export default async (ctx, next) => {
           userData.firstName,
           userData.lastName,
           userData.linkChat,
-          userData.email
+          userData.email,
         );
         logger.info(`New user created with Telegram ID: ${telegramId}`);
       } else {
@@ -51,7 +51,7 @@ export default async (ctx, next) => {
           firstName: userData.firstName,
           lastName: userData.lastName,
           linkChat: userData.linkChat,
-          dataLastActivity: new Date()
+          dataLastActivity: new Date(),
         });
         logger.debug(`User with Telegram ID ${telegramId} updated`);
       }
@@ -69,4 +69,3 @@ export default async (ctx, next) => {
     await ctx.reply('Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже.');
   }
 };
-

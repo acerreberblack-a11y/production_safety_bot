@@ -109,10 +109,9 @@ export class Bot {
     // 3) РАННИЙ обработчик /start — до остальных middlewares/handlers
     this.bot.use(async (ctx, next) => {
       const text = ctx.update?.message?.text;
-      const isStart =
-        ctx.updateType === 'message' &&
-        typeof text === 'string' &&
-        /^\/start(?:@\w+)?(?:\s|$)/.test(text);
+      const isStart = ctx.updateType === 'message'
+        && typeof text === 'string'
+        && /^\/start(?:@\w+)?(?:\s|$)/.test(text);
 
       if (!isStart) return next();
 

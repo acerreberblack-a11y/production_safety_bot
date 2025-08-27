@@ -22,7 +22,7 @@ export default function spamProtection({ limit = 5, interval = 10000 } = {}) {
 
     const now = Date.now();
     ctx.session.spam.timestamps = ctx.session.spam.timestamps.filter(
-      (t) => now - t < interval
+      (t) => now - t < interval,
     );
     ctx.session.spam.timestamps.push(now);
 

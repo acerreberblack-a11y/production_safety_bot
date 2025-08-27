@@ -30,19 +30,18 @@ emailAuth.enter(async (ctx) => {
         ctx.session.ticketType = user.email;
         await ctx.scene.enter('organization');
         return;
-      } else {
-        // Просим корпоративный адрес
-        ctx.session.email = null;
-        ctx.session.authCode = null;
-        await ctx.reply(
-          `Ваш текущий email (${user.email}) не из домена @rushydro.ru.\nПожалуйста, введите рабочую почту вида name@rushydro.ru.`,
-          {
-            parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: [[{ text: 'Отменить заполнение', callback_data: 'cancel_auth' }]] },
-          }
-        );
-        return;
       }
+      // Просим корпоративный адрес
+      ctx.session.email = null;
+      ctx.session.authCode = null;
+      await ctx.reply(
+        `Ваш текущий email (${user.email}) не из домена @rushydro.ru.\nПожалуйста, введите рабочую почту вида name@rushydro.ru.`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: [[{ text: 'Отменить заполнение', callback_data: 'cancel_auth' }]] },
+        },
+      );
+      return;
     }
 
     // Обычный заход в сцену
@@ -50,10 +49,9 @@ emailAuth.enter(async (ctx) => {
     ctx.session.authCode = null;
     const config = await ConfigLoader.loadConfig();
     const authConfig = config.controllers?.emailAuth;
-    const baseText =
-      fromProfile
-        ? (authConfig?.textProfile || 'Для подтверждения аккаунта введите ваш email.')
-        : (authConfig?.text || 'Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.');
+    const baseText = fromProfile
+      ? (authConfig?.textProfile || 'Для подтверждения аккаунта введите ваш email.')
+      : (authConfig?.text || 'Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.');
 
     const text = `${baseText}\n\n<b>Внимание:</b> принимаются только адреса в домене <b>@rushydro.ru</b>.`;
 
@@ -78,7 +76,7 @@ emailAuth.on('text', async (ctx) => {
       if (!isRushydroEmail(enteredText)) {
         await ctx.reply(
           'Неверный формат или домен email.\nРазрешены только адреса вида <b>name@rushydro.ru</b>.',
-          { parse_mode: 'HTML' }
+          { parse_mode: 'HTML' },
         );
         return;
       }
@@ -100,10 +98,10 @@ emailAuth.on('text', async (ctx) => {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Отправить повторно', callback_data: 'resend_code' }, { text: 'Отменить заполнение', callback_data: 'cancel_auth' }]
-            ]
-          }
-        }
+              [{ text: 'Отправить повторно', callback_data: 'resend_code' }, { text: 'Отменить заполнение', callback_data: 'cancel_auth' }],
+            ],
+          },
+        },
       );
     } else {
       // Проверка кода
@@ -112,7 +110,7 @@ emailAuth.on('text', async (ctx) => {
         if (!isRushydroEmail(ctx.session.email)) {
           await ctx.reply(
             'Разрешены только адреса в домене @rushydro.ru. Введите корректный email.',
-            { parse_mode: 'HTML' }
+            { parse_mode: 'HTML' },
           );
           delete ctx.session.email;
           delete ctx.session.authCode;
@@ -140,9 +138,9 @@ emailAuth.on('text', async (ctx) => {
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Отправить повторно', callback_data: 'resend_code' }, { text: 'Отменить заполнение', callback_data: 'cancel_auth' }]
-            ]
-          }
+              [{ text: 'Отправить повторно', callback_data: 'resend_code' }, { text: 'Отменить заполнение', callback_data: 'cancel_auth' }],
+            ],
+          },
         });
       }
     }
@@ -186,7 +184,7 @@ emailAuth.action('cancel_auth', async (ctx) => {
     delete ctx.session.ticketType;
     delete ctx.session.emailFlow;
     await ctx.reply('Заполнение обращения было отменено.', {
-      reply_markup: { remove_keyboard: true }
+      reply_markup: { remove_keyboard: true },
     });
     await ctx.scene.enter('welcome');
   } catch (error) {
