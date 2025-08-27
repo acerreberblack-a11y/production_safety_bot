@@ -11,57 +11,60 @@ const __dirname = path.dirname(__filename);
 const reportsRoot = path.join(__dirname, '..', 'reports');
 
 const defaultHtmlTemplate = `
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <title>Обращение #{{ticketId}}</title>
-    </head>
-    <body style="margin:0; padding:0; background-color:#f5f5f5;">
-        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-                <td align="center" valign="top">
-                    <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color:#ffffff; border-radius:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: Arial, sans-serif;">
-                        <tr>
-                            <td bgcolor="#2563eb" style="padding:24px; color:#ffffff;">
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                    <tr>
-                                        <td style="font-size:24px; font-weight:bold;">Обращение #{{ticketId}}</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:24px; color:#1f2937;">
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="line-height:1.6;">
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Пользователь:</strong> {{userEmail}}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Организация:</strong> {{organization}}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Филиал:</strong> {{branch}}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Классификация:</strong> {{classification}}</td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px; background-color:#f9fafb; padding:16px; border-radius:6px;">
-                                    <tr><td style="padding:12px;"><strong style="color:#2563eb;">Сообщение:</strong><br/><span style="display:inline-block; margin-top:4px;">{{message}}</span></td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:24px;">
-                                    <tr><td><strong style="color:#2563eb;">Вложения:</strong><ul style="margin:8px 0 0 0; padding-left:20px;">{{attachmentsHtml}}</ul></td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:32px; font-size:12px; color:#6b7280; font-style:italic;">
-                                    <tr><td>Это автоматическое сообщение от чат-бота \"Безопасность производства\". Просьба не отвечать на него.</td></tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="background-color:#f9fafb; padding:16px; font-size:12px; color:#6b7280;">
-                                Отправлено: {{date}}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-`;
+        <!doctype html>
+        <html lang="ru">
+        <head><meta charset="utf-8"><title>Обращение #{{ticketId}}</title></head>
+        <body style="margin:0;padding:0;background-color:#f5f5f5">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr><td align="center" valign="top">
+              <table border="0" cellpadding="0" cellspacing="0" width="600" style="background:#fff;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,.1);font-family:Arial,sans-serif">
+                <tr>
+                  <td bgcolor="#2563eb" style="padding:24px;color:#fff;font-size:24px;font-weight:700">
+                    Обращение #{{ticketId}}
+                  </td>
+                </tr>
+
+                <tr><td style="padding:24px;color:#1f2937">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="line-height:1.6">
+                    <tr><td style="padding-bottom:8px"><strong style="color:#2563eb">Пользователь:</strong> {{userEmail}}</td></tr>
+                    <tr><td style="padding-bottom:8px"><strong style="color:#2563eb">Организация:</strong> {{organization}}</td></tr>
+                    <tr><td style="padding-bottom:8px"><strong style="color:#2563eb">Филиал:</strong> {{branch}}</td></tr>
+                    <tr><td style="padding-bottom:8px"><strong style="color:#2563eb">Классификация:</strong> {{classification}}</td></tr>
+                  </table>
+
+                  <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;background:#f9fafb;padding:16px;border-radius:6px">
+                    <tr><td style="padding:12px">
+                      <strong style="color:#2563eb">Сообщение:</strong><br>
+                      <span style="display:inline-block;margin-top:4px">{{message}}</span>
+                    </td></tr>
+                  </table>
+
+                  {{attachmentsSection}}
+
+                  <div style="margin-top:32px;font-size:12px;color:#6b7280;font-style:italic">
+                    Это автоматическое сообщение от чат-бота «Безопасность производства». Просьба не отвечать на него.
+                  </div>
+                </td></tr>
+
+                <tr>
+                  <td style="background:#f9fafb;padding:16px;font-size:12px;color:#6b7280">
+                    Отправлено: {{date}}
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+        </body>
+        </html>
+      `;
+
+const escapeHtml = (text = "") =>
+    text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
 const applyTemplate = (template, data) =>
     template.replace(/{{\s*(\w+)\s*}}/g, (_, key) => data[key] ?? "");
@@ -92,28 +95,33 @@ const createTransporter = async () => {
 // Формирует HTML список вложений
 const buildAttachmentsHtml = (files) =>
     (files || []).map((file, index) => {
-        const ext = file.expansion || (file.name ? file.name.split('.').pop() : '');
-        const description = file.title || file.description || '';
+        const ext = escapeHtml(
+            file.expansion || (file.name ? file.name.split('.').pop() : '') || ''
+        );
+        const title = escapeHtml(file.title || file.description || '');
+        const name = `Вложение №${index + 1}.${ext}`;
+        const titlePart = title ? ` — ${title}` : '';
         return `
-            <div style="display: flex; align-items: center; background-color: #f5f5f5; padding: 12px; border-radius: 6px; margin: 4px 0; transition: all 0.2s ease;">
-                <svg xmlns=\"http://www.w3.org/2000/svg\" style=\"height: 24px; width: 24px; color: #6b7280; margin-right:8px;\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">
-                    <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\" />
-                </svg>
-                <span style=\"color: #374151;\">${'Вложение №' + (index + 1)}.${ext} ${description ? 'Описание: ' + description : ''}</span>
-            </div>
+          <li style="margin:6px 0;background:#f5f5f5;padding:10px;border-radius:6px;list-style:none;display:flex;align-items:center;">
+            <span style="display:inline-flex;width:24px;height:24px;margin-right:8px;opacity:.7">📎</span>
+            <span style="color:#374151">${name}${titlePart}</span>
+          </li>
         `;
     }).join('');
 
 const buildHtmlContent = (ticket, attachmentsHtml, template = defaultHtmlTemplate) => {
+    const attachmentsSection = attachmentsHtml
+        ? `\n                    <div style="margin-top:24px">\n                      <strong style="color:#2563eb">Вложения:</strong>\n                      <ul style="margin:8px 0 0 0;padding:0">${attachmentsHtml}</ul>\n                    </div>`
+        : '';
     const data = {
-        ticketId: ticket.id,
-        userEmail: ticket.user_email || 'N/A',
-        organization: ticket.organization,
-        branch: ticket.branch || 'N/A',
-        classification: ticket.classification,
-        message: ticket.message,
-        attachmentsHtml,
-        date: new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Berlin' }),
+        ticketId: escapeHtml(String(ticket.id)),
+        userEmail: escapeHtml(ticket.user_email || 'N/A'),
+        organization: escapeHtml(ticket.organization || 'N/A'),
+        branch: escapeHtml(ticket.branch || 'N/A'),
+        classification: escapeHtml(ticket.classification || 'N/A'),
+        message: escapeHtml(ticket.message || ''),
+        attachmentsSection,
+        date: new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }),
     };
     return applyTemplate(template, data);
 };
@@ -159,7 +167,7 @@ const sendTicketEmail = async () => {
             }
 
             const attachments = files.map(file => ({
-                filename: `${file.title}.${file.expansion}`,
+                filename: `${file.title || 'attachment'}.${file.expansion || 'bin'}`,
                 content: file.data,
             }));
 
@@ -231,7 +239,7 @@ const sendReportsFromFolder = async () => {
                         const filePath = path.join(ticketPath, fileInfo.name);
                         try {
                             const data = await fs.readFile(filePath);
-                            attachments.push({ filename: fileInfo.name, content: data });
+                            attachments.push({ filename: fileInfo.name || 'attachment.bin', content: data });
                         } catch (err) {
                             logger.error(`Ошибка чтения файла ${filePath}: ${err.message}`);
                         }
