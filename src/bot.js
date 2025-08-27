@@ -1,37 +1,28 @@
-import dotenv from "dotenv";
-import { Telegraf, Scenes } from "telegraf";
-import LocalSession from "telegraf-session-local";
-import { HttpsProxyAgent } from "https-proxy-agent";
-import logger from "./utils/logger.js";
+import dotenv from 'dotenv';
+import { Telegraf, Scenes } from 'telegraf';
+import LocalSession from 'telegraf-session-local';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import logger from './utils/logger.js';
 
-import welcome from "./controllers/welcome/index.js";
-import description from "./controllers/description/index.js";
-import ticketType from "./controllers/ticketType/index.js";
-import emailAuth from "./controllers/emailAuth/index.js";
-import organization from "./controllers/organization/index.js";
-import classification from "./controllers/classification/index.js";
-import reportIssue from "./controllers/reportIssue/index.js";
-import admin from "./controllers/admin/index.js";
-import userCheckMiddleware from "./middlewares/checkUser.js";
-import { startReportEmailSender } from "./utils/emailConfig.js";
-
+import welcome from './controllers/welcome/index.js';
+import description from './controllers/description/index.js';
+import ticketType from './controllers/ticketType/index.js';
+import emailAuth from './controllers/emailAuth/index.js';
+import organization from './controllers/organization/index.js';
+import classification from './controllers/classification/index.js';
+import reportIssue from './controllers/reportIssue/index.js';
+import admin from './controllers/admin/index.js';
+import userCheckMiddleware from './middlewares/checkUser.js';
+import { startReportEmailSender } from './utils/emailConfig.js';
+import ConfigLoader from './utils/configLoader.js';
 
 dotenv.config();
 
 let { BOT_TOKEN, PROXY_URL } = process.env;
 
-BOT_TOKEN = '7169869479:AAF3SOaQe2MYiNOb5e_fi3GcUPtADWIIsyM'
+BOT_TOKEN = '7169869479:AAF3SOaQe2MYiNOb5e_fi3GcUPtADWIIsyM';
 
-const scenes = [
-  welcome,
-  description,
-  ticketType,
-  emailAuth,
-  organization,
-  classification,
-  reportIssue,
-  admin,
-];
+const scenes = [welcome, description, ticketType, emailAuth, organization, classification, reportIssue, admin];
 
 // Initialize stage with scenes
 const stage = new Scenes.Stage(scenes, { ttl: 600 });
@@ -48,12 +39,12 @@ scenes.forEach((scene, index) => {
 class Bot {
   constructor(token = BOT_TOKEN) {
     if (!token) {
-      throw new Error("BOT_TOKEN is required");
+      throw new Error('BOT_TOKEN is required');
     }
 
     this.bot = new Telegraf(token, {
       handlerTimeout: 90000,
-      telegram: PROXY_URL ? { agent: new HttpsProxyAgent(PROXY_URL) } : undefined,
+      telegram: PROXY_URL ? { agent: new HttpsProxyAgent(PROXY_URL) } : undefined
     });
     this.setupMiddleware();
     this.registerHandlers();
@@ -63,15 +54,15 @@ class Bot {
 
   setupMiddleware() {
     const localSession = new LocalSession({
-      database: "sessions.json",
-      property: "session",
+      database: 'sessions.json',
+      property: 'session',
       storage: LocalSession.storageFileAsync,
       format: {
         serialize: (obj) => JSON.stringify(obj, null, 2),
-        deserialize: (str) => JSON.parse(str),
+        deserialize: (str) => JSON.parse(str)
       },
       state: { messages: [], sceneData: {} },
-      getSessionKey: (ctx) => ctx.chat?.id?.toString(),
+      getSessionKey: (ctx) => ctx.chat?.id?.toString()
     });
 
     this.bot.use(userCheckMiddleware);
@@ -84,50 +75,56 @@ class Bot {
     this.bot.start(async (ctx) => {
       try {
         ctx.session = { messages: [], sceneData: {} };
-        await ctx.scene.enter("welcome");
+        await ctx.scene.enter('welcome');
         logger.info(`User ${ctx.from.id} started bot`);
       } catch (error) {
         logger.error(`Start handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply("An error occurred. Please try again.");
+        await ctx.reply('An error occurred. Please try again.');
       }
     });
 
     // Text message fallback
-    this.bot.on("text", async (ctx) => {
+    this.bot.on('text', async (ctx) => {
       try {
         if (!ctx.session.sceneData) {
           ctx.session.sceneData = {};
         }
-        await ctx.scene.enter("welcome");
+        await ctx.scene.enter('welcome');
         logger.info(`User ${ctx.from.id} entered welcome scene`);
       } catch (error) {
         logger.error(`Text handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply("An error occurred. Please try again.");
+        await ctx.reply('An error occurred. Please try again.');
       }
     });
 
     // Admin command
-    this.bot.command("admin", async (ctx) => {
+    this.bot.command('admin', async (ctx) => {
       try {
-        await ctx.scene.enter("admin");
+        const config = await ConfigLoader.loadConfig();
+        const admins = (config.administrators || []).map(String);
+        if (!admins.includes(String(ctx.from.id))) {
+          await ctx.reply('У вас нет доступа к этому разделу.');
+          return;
+        }
+        await ctx.scene.enter('admin');
         logger.info(`User ${ctx.from.id} entered admin scene`);
       } catch (error) {
         logger.error(`Admin handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply("An error occurred. Please try again.");
+        await ctx.reply('An error occurred. Please try again.');
       }
     });
 
     // Error handling
     this.bot.catch((error, ctx) => {
       logger.error(`Global error: ${error.message}`, { stack: error.stack, user: ctx.from?.id });
-      ctx.reply("Something went wrong. Please try again later.");
+      ctx.reply('Something went wrong. Please try again later.');
     });
   }
 
   start() {
     this.bot
       .launch()
-      .then(() => logger.info("🤖 Bot started successfully"))
+      .then(() => logger.info('🤖 Bot started successfully'))
       .catch((error) => {
         logger.error(`Bot launch failed: ${error.message}`, { stack: error.stack });
         process.exit(1);
@@ -146,8 +143,8 @@ class Bot {
       process.exit(0);
     };
 
-    process.once("SIGINT", () => stop("SIGINT"));
-    process.once("SIGTERM", () => stop("SIGTERM"));
+    process.once('SIGINT', () => stop('SIGINT'));
+    process.once('SIGTERM', () => stop('SIGTERM'));
   }
 }
 
