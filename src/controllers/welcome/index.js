@@ -158,8 +158,14 @@ welcome.action('my_tickets', async (ctx) => {
 
         await ctx.answerCbQuery();
 
+        const replyOptions = {
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Назад', callback_data: 'back_to_welcome' }]]
+            }
+        };
+
         if (!tickets.length) {
-            return await ctx.reply('У вас пока нет обращений');
+            return await ctx.reply('У вас пока нет обращений', replyOptions);
         }
 
         let message = 'Ваши обращения:\n';
@@ -169,11 +175,12 @@ welcome.action('my_tickets', async (ctx) => {
         }
 
         if (message.length <= 4096) {
-            await ctx.reply(message.trim());
+            await ctx.reply(message.trim(), replyOptions);
         } else {
             const chunks = message.match(/[\s\S]{1,4000}/g) || [message];
-            for (const chunk of chunks) {
-                await ctx.reply(chunk.trim());
+            for (let i = 0; i < chunks.length; i++) {
+                const options = i === chunks.length - 1 ? replyOptions : undefined;
+                await ctx.reply(chunks[i].trim(), options);
             }
         }
 
@@ -181,6 +188,17 @@ welcome.action('my_tickets', async (ctx) => {
     } catch (error) {
         logger.error(`Error in my_tickets action: ${error.message}`);
         await ctx.answerCbQuery('Не удалось получить обращения', { show_alert: true });
+    }
+});
+
+welcome.action('back_to_welcome', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        await ctx.deleteMessage().catch(() => {});
+        await ctx.scene.reenter();
+        logger.info(`User ${ctx.from.id} returned to welcome scene`);
+    } catch (error) {
+        logger.error(`Error in back_to_welcome action: ${error.message}`);
     }
 });
 
