@@ -83,6 +83,20 @@ class Bot {
       }
     });
 
+    // Menu command
+    this.bot.command('menu', async (ctx) => {
+      try {
+        await ctx.scene.leave();
+        ctx.session = null;
+        ctx.session = { messages: [], sceneData: {} };
+        await ctx.scene.enter('welcome');
+        logger.info(`User ${ctx.from.id} returned to welcome menu`);
+      } catch (error) {
+        logger.error(`Menu handler error: ${error.message}`, { stack: error.stack });
+        await ctx.reply('An error occurred. Please try again.');
+      }
+    });
+
     // Text message fallback
     this.bot.on('text', async (ctx) => {
       try {
