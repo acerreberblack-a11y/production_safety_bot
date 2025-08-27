@@ -2,7 +2,7 @@
 import logger from '../../../utils/logger.js';
 import ConfigLoader from '../../../utils/configLoader.js';
 
-import { sendCodeEmail } from '../../../utils/emailConfig.js'
+import { sendCodeEmail } from '../../../utils/emailConfig.js';
 
 export default function emailSettings(scene) {
     // Обработка "Настройка email"
@@ -316,14 +316,14 @@ export default function emailSettings(scene) {
                     break;
 
                 case 'support_email':
-                config.general.support_email.email = text;
-                await ConfigLoader.saveConfig(config);
-                await ctx.reply('Адрес успешно обновлен!', {
-                    reply_markup: {
-                        inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
-                    }
-                });
-                break;
+                    config.general.email.support_email = text;
+                    await ConfigLoader.saveConfig(config);
+                    await ctx.reply('Адрес успешно обновлен!', {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
+                        }
+                    });
+                    break;
 
                 default:
                     return;

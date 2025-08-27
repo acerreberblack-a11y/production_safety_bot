@@ -1,5 +1,12 @@
 import logger from '../../../utils/logger.js';
-import { searchUsers, getUserDetails, updateUserRole, blockUser, deleteUser, selectAllRoleUsers } from '../../../../db/users.js';
+import {
+    searchUsers,
+    getUserDetails,
+    updateUserRole,
+    blockUser,
+    deleteUser,
+    selectAllRoleUsers,
+} from '../../../../db/users.js';
 
 export default function user_settings(scene) {
     scene.action('user_settings', async (ctx) => {
@@ -50,38 +57,12 @@ export default function user_settings(scene) {
         }
     });
 
-    scene.action(/^user_requests_(\d+)$/),  async (ctx) => {
+    scene.action(/^user_requests_(\d+)$/, async (ctx) => {
         return await ctx.answerCbQuery('Функция пока в разработке');
-    }
+    });
 
     scene.action(/^change_role_(\d+)$/, async (ctx) => {
-        try {
-            return await ctx.answerCbQuery('Функция пока в разработке');
-            const userId = ctx.match[1];
-            const user = await getUserDetails(userId);
-
-            if (!user) {
-                await ctx.reply('Ошибка: пользователь не найден.');
-                return;
-            }
-
-            const roles = await selectAllRoleUsers();
-
-            const keyboard = [...roles.map(roleItem => [
-                {
-                    text: roleItem.title,
-                    callback_data: `change_role_${roleItem.id}`
-                }
-            ]),
-            [{ text: 'Назад', callback_data: 'back_to_main' }]
-            ];
-
-            await ctx.reply('Введите новую роль для пользователя:', keyboard);
-            ctx.session.action = `update_role_${userId}`;
-        } catch (error) {
-            logger.error(`Error in changing role: ${error.message}`, { stack: error.stack });
-            await ctx.reply('Ошибка при изменении роли пользователя.');
-        }
+        return await ctx.answerCbQuery('Функция пока в разработке');
     });
 
     scene.on('text', async (ctx) => {
@@ -106,40 +87,10 @@ export default function user_settings(scene) {
     });
 
     scene.action(/^block_user_(\d+)$/, async (ctx) => {
-        try {
-            return await ctx.answerCbQuery('Функция пока в разработке');
-            const userId = ctx.match[1];
-            const user = await getUserDetails(userId);
-
-            if (!user) {
-                await ctx.reply('Ошибка: пользователь не найден.');
-                return;
-            }
-
-            await blockUser(userId);
-            await ctx.reply('Пользователь заблокирован.');
-        } catch (error) {
-            logger.error(`Error in blocking user: ${error.message}`, { stack: error.stack });
-            await ctx.reply('Ошибка при блокировке пользователя.');
-        }
+        return await ctx.answerCbQuery('Функция пока в разработке');
     });
 
     scene.action(/^delete_user_(\d+)$/, async (ctx) => {
-        try {
-            return await ctx.answerCbQuery('Функция пока в разработке');
-            const userId = ctx.match[1];
-            const user = await getUserDetails(userId);
-
-            if (!user) {
-                await ctx.reply('Ошибка: пользователь не найден.');
-                return;
-            }
-
-            await deleteUser(userId);
-            await ctx.reply('Пользователь удален.');
-        } catch (error) {
-            logger.error(`Error in deleting user: ${error.message}`, { stack: error.stack });
-            await ctx.reply('Ошибка при удалении пользователя.');
-        }
+        return await ctx.answerCbQuery('Функция пока в разработке');
     });
 }
