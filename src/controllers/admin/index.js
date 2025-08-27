@@ -7,6 +7,7 @@ import orgSettings from './module/orgSettings.js';
 import classificationSettings from './module/classificationSettings.js';
 import emailSettings from './module/emailSettings.js';
 import userSettings from './module/usersSettings.js';
+import adminSettings from './module/adminSettings.js';
 import { searchUsers, getStatistics, getTicketDetails } from "../../../db/users.js";
 import path from 'path';
 
@@ -23,7 +24,8 @@ admin.enter(async (ctx) => {
                     [{ text: '3. Настройка классификаций', callback_data: 'classification_settings' }],
                     [{ text: '4. Настройка email', callback_data: 'email_settings' }],
                     [{ text: '5. Управление пользователями', callback_data: 'user_settings' }],
-                    [{ text: '6. Статистика', callback_data: 'statistics' }],
+                    [{ text: '6. Администраторы', callback_data: 'admin_settings' }],
+                    [{ text: '7. Статистика', callback_data: 'statistics' }],
                     [{ text: 'Выход', callback_data: 'scene_admin_exit' }]
                 ]
             }
@@ -281,6 +283,22 @@ admin.on('text', async (ctx) => {
                         ]
                     }
                 });
+            } else if (action === 'add_admin') {
+                const digits = text.replace(/\D/g, '');
+                if (!digits) {
+                    await ctx.reply('ID должен содержать только цифры.', {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: 'Назад', callback_data: 'admin_settings' }]]
+                        }
+                    });
+                } else {
+                    const added = await ConfigLoader.addAdministrator(digits);
+                    await ctx.reply(added ? `Пользователь ${digits} добавлен в администраторы.` : 'Пользователь уже является администратором.', {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: 'Назад', callback_data: 'admin_settings' }]]
+                        }
+                    });
+                }
             } else if (action === 'find_user_for_db')
             {
                 if (!ctx.session.waitingForUserInput) return;
@@ -382,6 +400,7 @@ try {
     classificationSettings(admin);
     emailSettings(admin);
     userSettings(admin);
+    adminSettings(admin);
 } catch (error) {
     logger.error(`Error initializing admin modules: ${error.message}`, { stack: error.stack });
 }
