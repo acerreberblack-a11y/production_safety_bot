@@ -191,6 +191,23 @@ async function getTicketsByUserId(userId) {
     }
 }
 
+async function getStatistics() {
+    try {
+        const [users] = await db('users').count('id as count');
+        const [tickets] = await db('tickets').count('id as count');
+        const [files] = await db('files').count('id as count');
+
+        return {
+            userCount: Number(users.count),
+            ticketCount: Number(tickets.count),
+            fileCount: Number(files.count)
+        };
+    } catch (error) {
+        console.error(`Error getting statistics: ${error.message}`);
+        throw error;
+    }
+}
+
 export {
     createUser,
     findUserByTelegramId,
@@ -204,5 +221,6 @@ export {
     deleteUser,
     createTicket,
     createFile,
-    getTicketsByUserId
+    getTicketsByUserId,
+    getStatistics
 };

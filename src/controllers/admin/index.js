@@ -7,7 +7,7 @@ import orgSettings from './module/orgSettings.js';
 import classificationSettings from './module/classificationSettings.js';
 import emailSettings from './module/emailSettings.js';
 import userSettings from './module/usersSettings.js';
-import {searchUsers} from "../../../db/users.js";
+import { searchUsers, getStatistics } from "../../../db/users.js";
 
 const admin = new Scenes.BaseScene('admin');
 
@@ -22,6 +22,7 @@ admin.enter(async (ctx) => {
                     [{ text: '3. Настройка классификаций', callback_data: 'classification_settings' }],
                     [{ text: '4. Настройка email', callback_data: 'email_settings' }],
                     [{ text: '5. Управление пользователями', callback_data: 'user_settings' }],
+                    [{ text: '6. Статистика', callback_data: 'statistics' }],
                     [{ text: 'Выход', callback_data: 'scene_admin_exit' }]
                 ]
             }
@@ -42,6 +43,31 @@ admin.action('back_to_main', async (ctx) => {
     } catch (error) {
         logger.error(`Error in back_to_main action: ${error.message}`, { stack: error.stack });
         await ctx.reply('Извините, произошла ошибка при возвращении в главное меню.');
+    }
+});
+
+admin.action('statistics', async (ctx) => {
+    try {
+        await ctx.deleteMessage();
+        const { userCount, ticketCount, fileCount } = await getStatistics();
+        const avgTickets = userCount ? (ticketCount / userCount).toFixed(2) : 0;
+
+        await ctx.reply(
+            `Статистика:\nПользователи: ${userCount}\nОбращения: ${ticketCount}\nФайлы: ${fileCount}\nСреднее обращений на пользователя: ${avgTickets}`,
+            {
+                reply_markup: {
+                    inline_keyboard: [[{ text: 'Назад', callback_data: 'back_to_main' }]]
+                }
+            }
+        );
+        logger.info(`User ${ctx.from.id} viewed statistics`);
+    } catch (error) {
+        logger.error(`Error fetching statistics: ${error.message}`, { stack: error.stack });
+        await ctx.reply('Не удалось получить статистику', {
+            reply_markup: {
+                inline_keyboard: [[{ text: 'Назад', callback_data: 'back_to_main' }]]
+            }
+        });
     }
 });
 
