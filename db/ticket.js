@@ -1,5 +1,5 @@
 /*
-import db from '../db/knexfile.js';
+ import db from './db.js';
 
 async function getAllTickets() {
   try {

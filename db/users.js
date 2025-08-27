@@ -1,5 +1,4 @@
-import db from './client.js';
-
+import db from './db.js';
 async function createUser(telegramId, username = null, firstName = null, lastName = null, linkChat = null, email = null) {
     try {
         const [user] = await db('users')
