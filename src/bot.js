@@ -14,6 +14,7 @@ import reportIssue from "./controllers/reportIssue/index.js";
 import admin from "./controllers/admin/index.js";
 import userCheckMiddleware from "./middlewares/checkUser.js";
 import { startReportEmailSender } from "./utils/emailConfig.js";
+import ConfigLoader from "./utils/configLoader.js";
 
 
 dotenv.config();
@@ -109,6 +110,12 @@ class Bot {
     // Admin command
     this.bot.command("admin", async (ctx) => {
       try {
+        const config = await ConfigLoader.loadConfig();
+        const admins = config.administrators || [];
+        if (!admins.includes(ctx.from.id)) {
+          await ctx.reply("У вас нет доступа к этому разделу.");
+          return;
+        }
         await ctx.scene.enter("admin");
         logger.info(`User ${ctx.from.id} entered admin scene`);
       } catch (error) {
