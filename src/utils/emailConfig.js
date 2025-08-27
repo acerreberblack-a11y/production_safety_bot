@@ -251,38 +251,41 @@ const sendReportsFromFolder = async () => {
             for (const ticketDir of ticketDirs) {
                 if (!ticketDir.isDirectory()) continue;
                 const ticketPath = path.join(userPath, ticketDir.name);
-                const flagPath = path.join(ticketPath, 'email_sent.flag');
                 try {
-                    await fs.access(flagPath);
-                    continue; // already sent
-                } catch {}
+                    const issueFile = path.join(ticketPath, 'issue.json');
+                    const issueData = JSON.parse(await fs.readFile(issueFile, 'utf8'));
 
-                const issueFile = path.join(ticketPath, 'issue.json');
-                const issueData = JSON.parse(await fs.readFile(issueFile, 'utf8'));
-
-                const attachments = [];
-                for (const fileInfo of issueData.files || []) {
-                    const filePath = path.join(ticketPath, fileInfo.name);
-                    try {
-                        const data = await fs.readFile(filePath);
-                        attachments.push({ filename: fileInfo.name, content: data });
-                    } catch (err) {
-                        logger.error(`Ошибка чтения файла ${filePath}: ${err.message}`);
+                    const attachments = [];
+                    for (const fileInfo of (issueData.files || [])) {
+                        const filePath = path.join(ticketPath, fileInfo.name);
+                        try {
+                            const data = await fs.readFile(filePath);
+                            attachments.push({ filename: fileInfo.name, content: data });
+                        } catch (err) {
+                            logger.error(`Ошибка чтения файла ${filePath}: ${err.message}`);
+                        }
                     }
+
+                    const text = `Пользователь: ${issueData.user}\nОрганизация: ${issueData.company}\nФилиал: ${issueData.filial}\nКлассификация: ${issueData.classification}\n\n${issueData.text}`;
+
+                    await transporter.sendMail({
+                        from: user,
+                        to,
+                        subject: `Ticket from ${issueData.user} - ${issueData.classification}`,
+                        text,
+                        attachments,
+                    });
+
+                    await fs.rm(ticketPath, { recursive: true, force: true });
+                    logger.info(`Отправлено обращение из ${ticketPath}, папка удалена`);
+                } catch (err) {
+                    logger.error(`Ошибка обработки ${ticketPath}: ${err.message}`);
                 }
+            }
 
-                const text = `Пользователь: ${issueData.user}\nОрганизация: ${issueData.company}\nФилиал: ${issueData.filial}\nКлассификация: ${issueData.classification}\n\n${issueData.text}`;
-
-                await transporter.sendMail({
-                    from: user,
-                    to,
-                    subject: `Ticket from ${issueData.user} - ${issueData.classification}`,
-                    text,
-                    attachments,
-                });
-
-                await fs.writeFile(flagPath, new Date().toISOString());
-                logger.info(`Отправлено обращение из ${ticketPath}`);
+            const remaining = await fs.readdir(userPath).catch(() => []);
+            if (remaining.length === 0) {
+                await fs.rm(userPath, { recursive: true, force: true });
             }
         }
     } catch (error) {
