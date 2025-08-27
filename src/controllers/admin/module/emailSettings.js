@@ -11,7 +11,7 @@ export default function emailSettings(scene) {
             await ctx.deleteMessage();
             const config = await ConfigLoader.loadConfig();
             logger.info('Loaded email config:', { email: config.general });
-            const { host, port, user,  password, secure, rejectUnauthorized, support_email } = config.general.email || {};
+            const { host, port, user,  password, secure, rejectUnauthorized, support_email, ticket_subject, ticket_template } = config.general.email || {};
 
             const keyboard = [
                 [
@@ -54,6 +54,18 @@ export default function emailSettings(scene) {
                     {
                         text: 'Проверить раб-сть',
                         callback_data: 'test_email_settings'
+                    }
+                ],
+                [
+                    {
+                        text: `📝 Тема: ${ticket_subject || 'по умолчанию'}`,
+                        callback_data: 'edit_ticket_subject'
+                    }
+                ],
+                [
+                    {
+                        text: `📰 Шаблон письма: ${ticket_template ? 'изменен' : 'по умолчанию'}`,
+                        callback_data: 'edit_ticket_template'
                     }
                 ],
                 [
@@ -195,6 +207,34 @@ export default function emailSettings(scene) {
         }
     });
 
+    scene.action('edit_ticket_subject', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const config = await ConfigLoader.loadConfig();
+            const current = config.general.email.ticket_subject || 'Ticket #{{ticketId}} - {{classification}}';
+            await ctx.reply(`Текущая тема письма:\n${current}\n\nВведите новую тему (можно использовать {{ticketId}} и {{classification}}):`, {
+                reply_markup: { inline_keyboard: [[{ text: 'Отмена', callback_data: 'email_settings' }]] }
+            });
+            ctx.session.action = 'edit_ticket_subject';
+        } catch (error) {
+            logger.error(`Error in edit_ticket_subject action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при попытке изменить тему письма.');
+        }
+    });
+
+    scene.action('edit_ticket_template', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Отправьте новый HTML шаблон письма. Доступны плейсхолдеры: {{ticketId}}, {{userEmail}}, {{organization}}, {{branch}}, {{classification}}, {{message}}, {{attachmentsHtml}}, {{date}}.\nЧтобы использовать шаблон по умолчанию, отправьте "default".', {
+                reply_markup: { inline_keyboard: [[{ text: 'Отмена', callback_data: 'email_settings' }]] }
+            });
+            ctx.session.action = 'edit_ticket_template';
+        } catch (error) {
+            logger.error(`Error in edit_ticket_template action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при попытке изменить шаблон письма.');
+        }
+    });
+
     // Обработка почты для отправки обращений
     // Обработка изменения пользователя
     scene.action('support_email', async (ctx) => {
@@ -264,7 +304,7 @@ export default function emailSettings(scene) {
     // Обработка текстового ввода для всех действий
     scene.on('text', async (ctx) => {
         const action = ctx.session.action;
-        if (!action || !action.startsWith('edit_email_')) return;
+        if (!action) return;
 
         try {
             const config = await ConfigLoader.loadConfig();
@@ -319,6 +359,30 @@ export default function emailSettings(scene) {
                     config.general.email.support_email = text;
                     await ConfigLoader.saveConfig(config);
                     await ctx.reply('Адрес успешно обновлен!', {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
+                        }
+                    });
+                    break;
+
+                case 'edit_ticket_subject':
+                    config.general.email.ticket_subject = text;
+                    await ConfigLoader.saveConfig(config);
+                    await ctx.reply('Тема письма обновлена!', {
+                        reply_markup: {
+                            inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
+                        }
+                    });
+                    break;
+
+                case 'edit_ticket_template':
+                    if (text.toLowerCase() === 'default') {
+                        delete config.general.email.ticket_template;
+                    } else {
+                        config.general.email.ticket_template = text;
+                    }
+                    await ConfigLoader.saveConfig(config);
+                    await ctx.reply('Шаблон письма обновлен!', {
                         reply_markup: {
                             inline_keyboard: [[{ text: 'Назад', callback_data: 'email_settings' }]]
                         }

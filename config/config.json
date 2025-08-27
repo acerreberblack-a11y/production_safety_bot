@@ -124,7 +124,9 @@
       "secure": true,
       "rejectUnauthorized": true,
       "port": 465,
-      "support_email": "ProlubnikovVV@rushydro.ru"
+      "support_email": "ProlubnikovVV@rushydro.ru",
+      "ticket_subject": "Ticket #{{ticketId}} - {{classification}}",
+      "ticket_template": ""
     },
     "commands": {}
   }

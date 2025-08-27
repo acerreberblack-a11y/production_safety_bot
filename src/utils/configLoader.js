@@ -89,6 +89,9 @@ class ConfigLoader {
                 if (updates.password !== undefined) emailConfig.password = updates.password;
                 if (updates.secure !== undefined) emailConfig.secure = Boolean(updates.secure);
                 if (updates.rejectUnauthorized !== undefined) emailConfig.rejectUnauthorized = Boolean(updates.rejectUnauthorized);
+                if (updates.support_email !== undefined) emailConfig.support_email = updates.support_email;
+                if (updates.ticket_subject !== undefined) emailConfig.ticket_subject = updates.ticket_subject;
+                if (updates.ticket_template !== undefined) emailConfig.ticket_template = updates.ticket_template;
 
                 await this.saveConfig(config);
                 logger.info('Email settings updated', { updates });

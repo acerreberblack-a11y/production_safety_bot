@@ -10,6 +10,62 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const reportsRoot = path.join(__dirname, '..', 'reports');
 
+const defaultHtmlTemplate = `
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Обращение #{{ticketId}}</title>
+    </head>
+    <body style="margin:0; padding:0; background-color:#f5f5f5;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+                <td align="center" valign="top">
+                    <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color:#ffffff; border-radius:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: Arial, sans-serif;">
+                        <tr>
+                            <td bgcolor="#2563eb" style="padding:24px; color:#ffffff;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                    <tr>
+                                        <td style="font-size:24px; font-weight:bold;">Обращение #{{ticketId}}</td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:24px; color:#1f2937;">
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="line-height:1.6;">
+                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Пользователь:</strong> {{userEmail}}</td></tr>
+                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Организация:</strong> {{organization}}</td></tr>
+                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Филиал:</strong> {{branch}}</td></tr>
+                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Классификация:</strong> {{classification}}</td></tr>
+                                </table>
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px; background-color:#f9fafb; padding:16px; border-radius:6px;">
+                                    <tr><td style="padding:12px;"><strong style="color:#2563eb;">Сообщение:</strong><br/><span style="display:inline-block; margin-top:4px;">{{message}}</span></td></tr>
+                                </table>
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:24px;">
+                                    <tr><td><strong style="color:#2563eb;">Вложения:</strong><ul style="margin:8px 0 0 0; padding-left:20px;">{{attachmentsHtml}}</ul></td></tr>
+                                </table>
+                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:32px; font-size:12px; color:#6b7280; font-style:italic;">
+                                    <tr><td>Это автоматическое сообщение от чат-бота \"Безопасность производства\". Просьба не отвечать на него.</td></tr>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#f9fafb; padding:16px; font-size:12px; color:#6b7280;">
+                                Отправлено: {{date}}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+`;
+
+const applyTemplate = (template, data) =>
+    template.replace(/{{\s*(\w+)\s*}}/g, (_, key) => data[key] ?? "");
+
 const createTransporter = async () => {
     const config = await ConfigLoader.loadConfig();
     const { host, port, secure, user, password, rejectUnauthorized } =
@@ -48,59 +104,19 @@ const buildAttachmentsHtml = (files) =>
         `;
     }).join('');
 
-// Шаблон HTML письма
-const buildHtmlContent = (ticket, attachmentsHtml) => `
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <title>Обращение #${ticket.id}</title>
-    </head>
-    <body style="margin:0; padding:0; background-color:#f5f5f5;">
-        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%">
-            <tr>
-                <td align="center" valign="top">
-                    <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color:#ffffff; border-radius:8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: Arial, sans-serif;">
-                        <tr>
-                            <td bgcolor="#2563eb" style="padding:24px; color:#ffffff;">
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                                    <tr>
-                                        <td style="font-size:24px; font-weight:bold;">Обращение #${ticket.id}</td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding:24px; color:#1f2937;">
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="line-height:1.6;">
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Пользователь:</strong> ${ticket.user_email || 'N/A'}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Организация:</strong> ${ticket.organization}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Филиал:</strong> ${ticket.branch || 'N/A'}</td></tr>
-                                    <tr><td style="padding-bottom:8px;"><strong style="color:#2563eb;">Классификация:</strong> ${ticket.classification}</td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:16px; background-color:#f9fafb; padding:16px; border-radius:6px;">
-                                    <tr><td style="padding:12px;"><strong style="color:#2563eb;">Сообщение:</strong><br/><span style="display:inline-block; margin-top:4px;">${ticket.message}</span></td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:24px;">
-                                    <tr><td><strong style="color:#2563eb;">Вложения:</strong><ul style="margin:8px 0 0 0; padding-left:20px;">${attachmentsHtml}</ul></td></tr>
-                                </table>
-                                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top:32px; font-size:12px; color:#6b7280; font-style:italic;">
-                                    <tr><td>Это автоматическое сообщение от чат-бота "Безопасность производства". Просьба не отвечать на него.</td></tr>
-                                </table>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="background-color:#f9fafb; padding:16px; font-size:12px; color:#6b7280;">
-                                Отправлено: ${new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Berlin' })}
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-`;
+const buildHtmlContent = (ticket, attachmentsHtml, template = defaultHtmlTemplate) => {
+    const data = {
+        ticketId: ticket.id,
+        userEmail: ticket.user_email || 'N/A',
+        organization: ticket.organization,
+        branch: ticket.branch || 'N/A',
+        classification: ticket.classification,
+        message: ticket.message,
+        attachmentsHtml,
+        date: new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Berlin' }),
+    };
+    return applyTemplate(template, data);
+};
 
 const sendCodeEmail = async (to, code) => {
     try {
@@ -122,7 +138,7 @@ const sendCodeEmail = async (to, code) => {
 const sendTicketEmail = async () => {
     try {
         const config = await ConfigLoader.loadConfig();
-        const { user, support_email: to } = config.general?.email || {};
+        const { user, support_email: to, ticket_subject, ticket_template } = config.general?.email || {};
         if (!to) {
             throw new Error('Не указан адрес получателя для обращений');
         }
@@ -148,12 +164,17 @@ const sendTicketEmail = async () => {
             }));
 
             const attachmentsHtml = buildAttachmentsHtml(files);
-            const htmlContent = buildHtmlContent(ticket, attachmentsHtml);
+            const htmlContent = buildHtmlContent(ticket, attachmentsHtml, ticket_template);
+            const subjectTemplate = ticket_subject || 'Ticket #{{ticketId}} - {{classification}}';
+            const subject = applyTemplate(subjectTemplate, {
+                ticketId: ticket.id,
+                classification: ticket.classification,
+            });
 
             await transporter.sendMail({
                 from: user,
                 to,
-                subject: `Ticket #${ticket.id} - ${ticket.classification}`,
+                subject,
                 html: htmlContent,
                 attachments,
             });
@@ -184,7 +205,7 @@ const startTicketEmailSender = () => {
 const sendReportsFromFolder = async () => {
     try {
         const config = await ConfigLoader.loadConfig();
-        const { user, support_email: to } = config.general?.email || {};
+        const { user, support_email: to, ticket_subject, ticket_template } = config.general?.email || {};
         if (!to) {
             throw new Error('Не указан адрес получателя для обращений');
         }
@@ -225,12 +246,17 @@ const sendReportsFromFolder = async () => {
                         classification: issueData.classification,
                         message: issueData.text,
                     };
-                    const htmlContent = buildHtmlContent(ticketData, attachmentsHtml);
+                    const htmlContent = buildHtmlContent(ticketData, attachmentsHtml, ticket_template);
+                    const subjectTemplate = ticket_subject || 'Ticket #{{ticketId}} - {{classification}}';
+                    const subject = applyTemplate(subjectTemplate, {
+                        ticketId: ticketData.id,
+                        classification: ticketData.classification,
+                    });
 
                     await transporter.sendMail({
                         from: user,
                         to,
-                        subject: `Ticket from ${issueData.user} - ${issueData.classification}`,
+                        subject,
                         html: htmlContent,
                         attachments,
                     });
