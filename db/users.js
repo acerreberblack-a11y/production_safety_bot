@@ -194,6 +194,18 @@ async function getTicketsByUserId(userId) {
     }
 }
 
+async function getTicketDetails(ticketId) {
+    try {
+        const ticket = await db('tickets').where({ id: ticketId }).first();
+        if (!ticket) return null;
+        const files = await db('files').where({ ticket_id: ticketId });
+        return { ticket, files };
+    } catch (error) {
+        console.error(`Error getting ticket details: ${error.message}`);
+        throw error;
+    }
+}
+
 async function getStatistics() {
     try {
         const [users] = await db('users').count('id as count');
@@ -225,5 +237,6 @@ export {
     createTicket,
     createFile,
     getTicketsByUserId,
+    getTicketDetails,
     getStatistics
 };

@@ -6,7 +6,12 @@ import {
     blockUser,
     deleteUser,
     selectAllRoleUsers,
+    getTicketsByUserId,
+    getTicketDetails,
 } from '../../../../db/users.js';
+import archiver from 'archiver';
+import path from 'path';
+import { PassThrough } from 'stream';
 
 export default function user_settings(scene) {
     scene.action('user_settings', async (ctx) => {
@@ -40,7 +45,7 @@ export default function user_settings(scene) {
                 return;
             }
 
-            await ctx.reply(`Информация о пользователе:\n\nID: ${user.id}\nИмя: ${user.firstName} ${user.lastName}\nUsername: ${user.username}\nРоль: ${user.role}\nСтатус: ${user.status}`, {
+            await ctx.reply(`Информация о пользователе:\n\nID: ${user.id}\nИмя: ${user.firstName || ''} ${user.lastName || ''}\nUsername: ${user.username || ''}\nРоль: ${user.role_id}\nСтатус: ${user.is_blocked ? 'Заблокирован' : 'Активен'}`, {
                 reply_markup: {
                     inline_keyboard: [
                         [{ text: 'Обращения', callback_data: `user_requests_${user.id}` }],
@@ -58,7 +63,106 @@ export default function user_settings(scene) {
     });
 
     scene.action(/^user_requests_(\d+)$/, async (ctx) => {
-        return await ctx.answerCbQuery('Функция пока в разработке');
+        try {
+            await ctx.deleteMessage();
+            const userId = ctx.match[1];
+            const tickets = await getTicketsByUserId(userId);
+
+            if (!tickets.length) {
+                await ctx.reply('У пользователя нет обращений.', {
+                    reply_markup: {
+                        inline_keyboard: [[{ text: 'Назад', callback_data: `user_${userId}` }]]
+                    }
+                });
+                return;
+            }
+
+            const keyboard = tickets.map(t => [{ text: `Обращение ${t.id}`, callback_data: `ticket_${t.id}` }]);
+            keyboard.push([{ text: 'Назад', callback_data: `user_${userId}` }]);
+
+            await ctx.reply('Выберите обращение:', {
+                reply_markup: { inline_keyboard: keyboard }
+            });
+        } catch (error) {
+            logger.error(`Error fetching user requests: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при получении обращений пользователя.');
+        }
+    });
+
+    scene.action(/^ticket_(\d+)$/, async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const ticketId = ctx.match[1];
+            const details = await getTicketDetails(ticketId);
+            if (!details) {
+                await ctx.reply('Обращение не найдено.');
+                return;
+            }
+            const { ticket, files } = details;
+
+            await ctx.reply(
+                `Обращение #${ticket.id}\nОрганизация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\n\n${ticket.message}`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Скачать архив', callback_data: `download_ticket_${ticket.id}` }],
+                            [{ text: 'Назад', callback_data: `user_requests_${ticket.user_id}` }]
+                        ]
+                    }
+                }
+            );
+
+            if (files && files.length) {
+                for (const file of files) {
+                    const filename = path.basename(file.path);
+                    await ctx.replyWithDocument({ source: Buffer.from(file.data), filename }, { caption: file.title || '' });
+                }
+            }
+        } catch (error) {
+            logger.error(`Error fetching ticket details: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при получении данных обращения.');
+        }
+    });
+
+    scene.action(/^download_ticket_(\d+)$/, async (ctx) => {
+        try {
+            const ticketId = ctx.match[1];
+            const details = await getTicketDetails(ticketId);
+            if (!details) {
+                await ctx.answerCbQuery('Обращение не найдено');
+                return;
+            }
+            const { ticket, files } = details;
+
+            const archive = archiver('zip', { zlib: { level: 9 } });
+            const stream = new PassThrough();
+            const chunks = [];
+            stream.on('data', chunk => chunks.push(chunk));
+            archive.pipe(stream);
+
+            let info = `Организация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\n\nТекст обращения:\n${ticket.message}\n\nВложения:\n`;
+            if (files && files.length) {
+                info += files.map((f, i) => `${i + 1}. ${path.basename(f.path)} - ${f.title || ''}`).join('\n');
+            } else {
+                info += 'Нет вложений';
+            }
+
+            archive.append(info, { name: 'request.txt' });
+
+            if (files && files.length) {
+                for (const file of files) {
+                    const filename = path.basename(file.path);
+                    archive.append(file.data, { name: filename });
+                }
+            }
+
+            await archive.finalize();
+            const buffer = Buffer.concat(chunks);
+            await ctx.replyWithDocument({ source: buffer, filename: `ticket_${ticket.id}.zip` });
+        } catch (error) {
+            logger.error(`Error creating ticket archive: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при создании архива.');
+        }
     });
 
     scene.action(/^change_role_(\d+)$/, async (ctx) => {
@@ -87,10 +191,30 @@ export default function user_settings(scene) {
     });
 
     scene.action(/^block_user_(\d+)$/, async (ctx) => {
-        return await ctx.answerCbQuery('Функция пока в разработке');
+        try {
+            const userId = ctx.match[1];
+            const user = await blockUser(userId);
+            await ctx.answerCbQuery();
+            await ctx.reply(`Пользователь ${user.is_blocked ? 'заблокирован' : 'разблокирован'}.`);
+        } catch (error) {
+            logger.error(`Error blocking user: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при изменении статуса пользователя.');
+        }
     });
 
     scene.action(/^delete_user_(\d+)$/, async (ctx) => {
-        return await ctx.answerCbQuery('Функция пока в разработке');
+        try {
+            const userId = ctx.match[1];
+            const result = await deleteUser(userId);
+            await ctx.answerCbQuery();
+            if (result.success) {
+                await ctx.reply('Пользователь удалён.');
+            } else {
+                await ctx.reply('Пользователь не найден.');
+            }
+        } catch (error) {
+            logger.error(`Error deleting user: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при удалении пользователя.');
+        }
     });
 }
