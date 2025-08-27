@@ -1,7 +1,10 @@
+/* eslint-disable import/extensions */
 import '../env.js';
-import { Telegraf, Scenes } from 'telegraf';
-import LocalSession from 'telegraf-session-local';
+
+import { Telegraf, Scenes, session } from 'telegraf';
+import { Redis as RedisStore } from '@telegraf/session/redis';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+
 import logger from './utils/logger.js';
 
 import welcome from './controllers/welcome/index.js';
@@ -12,18 +15,36 @@ import organization from './controllers/organization/index.js';
 import classification from './controllers/classification/index.js';
 import reportIssue from './controllers/reportIssue/index.js';
 import admin from './controllers/admin/index.js';
+
 import userCheckMiddleware from './middlewares/checkUser.js';
 import spamProtection from './middlewares/spamProtection.js';
+
 import { startReportEmailSender } from './utils/emailConfig.js';
 import ConfigLoader from './utils/configLoader.js';
 
-const { BOT_TOKEN, PROXY_URL } = process.env;
-
+const {
+  BOT_TOKEN,
+  PROXY_URL,
+  REDIS_URL,
+  REDIS_HOST = '127.0.0.1',
+  REDIS_PORT = '6379',
+  REDIS_PASSWORD,
+  REDIS_TLS, // "1" -> rediss://
+} = process.env;
 
 // Список доступных сцен
-const scenes = [welcome, description, ticketType, emailAuth, organization, classification, reportIssue, admin];
+const scenes = [
+  welcome,
+  description,
+  ticketType,
+  emailAuth,
+  organization,
+  classification,
+  reportIssue,
+  admin,
+];
 
-// Инициализация stage с указанными сценами
+// Инициализация stage
 const stage = new Scenes.Stage(scenes, { ttl: 600 });
 
 // Проверяем корректность сцен и логируем регистрацию
@@ -35,17 +56,36 @@ scenes.forEach((scene, index) => {
   logger.info(`Scene ${scene.id} registered`);
 });
 
-// Основной класс Telegram-бота
-class Bot {
-  constructor(token = BOT_TOKEN) {
-    if (!token) {
-      throw new Error('BOT_TOKEN is required');
-    }
+const defaultSession = () => ({ messages: [], sceneData: {} });
+const getSessionKey = (ctx) => {
+  const chatId = ctx.chat?.id;
+  const userId = ctx.from?.id;
+  return userId && chatId ? `${chatId}:${userId}` : undefined;
+};
+const buildRedisUrl = () => {
+  if (REDIS_URL) return REDIS_URL;
+  const proto = REDIS_TLS === '1' ? 'rediss' : 'redis';
+  const auth = REDIS_PASSWORD ? `:${encodeURIComponent(REDIS_PASSWORD)}@` : '';
+  return `${proto}://${auth}${REDIS_HOST}:${REDIS_PORT}`;
+};
 
-    this.bot = new Telegraf(token, {
-      handlerTimeout: 90000,
-      telegram: PROXY_URL ? { agent: new HttpsProxyAgent(PROXY_URL) } : undefined
+// Основной класс Telegram-бота
+export class Bot {
+  constructor(token = BOT_TOKEN) {
+    if (!token) throw new Error('BOT_TOKEN is required');
+
+    const telegrafOptions = { handlerTimeout: 90_000 };
+    if (PROXY_URL) telegrafOptions.telegram = { agent: new HttpsProxyAgent(PROXY_URL) };
+
+    this.bot = new Telegraf(token, telegrafOptions);
+    this.emailInterval = null;
+
+    // инициализируем store один раз и сохраняем ссылку
+    this.sessionStore = RedisStore({
+      url: buildRedisUrl(),
+      prefix: 'tg:sess:',
     });
+
     this.setupMiddleware();
     this.registerHandlers();
     this.start();
@@ -53,97 +93,138 @@ class Bot {
   }
 
   setupMiddleware() {
-    // Настройка локального хранилища сессий
-    const localSession = new LocalSession({
-      database: 'sessions_10.json',
-      property: 'session',
-      storage: LocalSession.storageFileAsync,
-      format: {
-        serialize: (obj) => JSON.stringify(obj, null, 2),
-        deserialize: (str) => JSON.parse(str)
-      },
-      state: { messages: [], sceneData: {} },
-      getSessionKey: (ctx) => {
-        const chatId = ctx.chat?.id;
-        const userId = ctx.from?.id;
-        return userId && chatId
-          ? `${chatId}:${userId}`
-          : chatId?.toString();
-      }
-    });
+    // 1) сессии
+    this.bot.use(
+      session({
+        store: this.sessionStore,
+        getSessionKey,
+        defaultSession,
+      }),
+    );
 
-    // Подключаем защиты от спама, проверки пользователя, сессию и сцены
-    this.bot.use(spamProtection());
-    this.bot.use(userCheckMiddleware);
-    this.bot.use(localSession.middleware());
+    // 2) сцены
     this.bot.use(stage.middleware());
 
-    // Команда возврата в главное меню
+    // 3) РАННИЙ обработчик /start — до остальных middlewares/handlers
+    this.bot.use(async (ctx, next) => {
+      const text = ctx.update?.message?.text;
+      const isStart =
+        ctx.updateType === 'message' &&
+        typeof text === 'string' &&
+        /^\/start(?:@\w+)?(?:\s|$)/.test(text);
+
+      if (!isStart) return next();
+
+      try {
+        // ВЫЙТИ из текущей сцены на старой сессии
+        await ctx.scene.leave().catch(() => {});
+
+        // ЖЁСТКО удалить запись сессии в Redis
+        const key = getSessionKey(ctx);
+        if (key) {
+          await this.sessionStore.delete(key);
+        }
+
+        // Создать ЧИСТУЮ сессию (нельзя оставлять null перед enter)
+        // eslint-disable-next-line no-param-reassign
+        ctx.session = defaultSession();
+
+        // Зайти в welcome
+        await ctx.scene.enter('welcome');
+
+        const { id: userId } = ctx.from || {};
+        logger.info(`User ${userId} started bot (session purged & reinitialized)`);
+      } catch (error) {
+        logger.error(`Early /start handler error: ${error.message}`, { stack: error.stack });
+        // eslint-disable-next-line no-void
+        void ctx.reply('An error occurred. Please try again.');
+      }
+      return undefined; // не пропускаем дальше
+    });
+
+    // 4) остальной пайплайн
+    this.bot.use(spamProtection());
+    this.bot.use(userCheckMiddleware);
+
+    // /menu — вернуться в главное, тоже чистим запись в Redis
     this.bot.command('menu', async (ctx) => {
       try {
         await ctx.scene.leave();
-        ctx.session = { messages: [], sceneData: {} };
+
+        const key = getSessionKey(ctx);
+        if (key) {
+          await this.sessionStore.delete(key);
+        }
+        // eslint-disable-next-line no-param-reassign
+        ctx.session = defaultSession();
+
         await ctx.scene.enter('welcome');
-        logger.info(`User ${ctx.from.id} returned to welcome menu`);
+
+        const { id: userId } = ctx.from || {};
+        logger.info(`User ${userId} returned to welcome (session purged & reinitialized)`);
       } catch (error) {
         logger.error(`Menu handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply('An error occurred. Please try again.');
+        // eslint-disable-next-line no-void
+        void ctx.reply('An error occurred. Please try again.');
       }
     });
   }
 
   registerHandlers() {
-    // Обработка команды /start
-    this.bot.start(async (ctx) => {
-      try {
-        ctx.session = { messages: [], sceneData: {} };
-        await ctx.scene.enter('welcome');
-        logger.info(`User ${ctx.from.id} started bot`);
-      } catch (error) {
-        logger.error(`Start handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply('An error occurred. Please try again.');
-      }
-    });
+    // Явный .start не нужен — /start ловится ранним middleware.
 
-    // Обработка обычных текстовых сообщений
+    // Обычные текстовые сообщения
     this.bot.on('text', async (ctx) => {
       try {
-        if (!ctx.session.sceneData) {
+        if (!ctx.session) {
+          // eslint-disable-next-line no-param-reassign
+          ctx.session = defaultSession();
+        } else if (!ctx.session.sceneData) {
+          // eslint-disable-next-line no-param-reassign
           ctx.session.sceneData = {};
         }
+
         await ctx.scene.enter('welcome');
-        logger.info(`User ${ctx.from.id} entered welcome scene`);
+
+        const { id: userId } = ctx.from || {};
+        logger.info(`User ${userId} entered welcome scene`);
       } catch (error) {
         logger.error(`Text handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply('An error occurred. Please try again.');
+        // eslint-disable-next-line no-void
+        void ctx.reply('An error occurred. Please try again.');
       }
     });
 
-    // Переход в административный режим
+    // Админ-команда
     this.bot.command('admin', async (ctx) => {
       try {
         const config = await ConfigLoader.loadConfig();
         const admins = (config.administrators || []).map(String);
-        if (!admins.includes(String(ctx.from.id))) {
+
+        const { id: userId } = ctx.from || {};
+        if (!admins.includes(String(userId))) {
           await ctx.reply('У вас нет доступа к этому разделу.');
           return;
         }
+
         await ctx.scene.enter('admin');
-        logger.info(`User ${ctx.from.id} entered admin scene`);
+        logger.info(`User ${userId} entered admin scene`);
       } catch (error) {
         logger.error(`Admin handler error: ${error.message}`, { stack: error.stack });
-        await ctx.reply('An error occurred. Please try again.');
+        // eslint-disable-next-line no-void
+        void ctx.reply('An error occurred. Please try again.');
       }
     });
 
     // Глобальная обработка ошибок
     this.bot.catch((error, ctx) => {
-      logger.error(`Global error: ${error.message}`, { stack: error.stack, user: ctx.from?.id });
-      ctx.reply('Something went wrong. Please try again later.');
+      const { id: userId } = ctx.from || {};
+      logger.error(`Global error: ${error.message}`, { stack: error.stack, user: userId });
+      // eslint-disable-next-line no-void
+      void ctx.reply('Something went wrong. Please try again later.');
     });
   }
 
-  // Запуск бота и обработка завершения работы
   start() {
     this.bot
       .launch()
@@ -156,14 +237,11 @@ class Bot {
     this.handleShutdown();
   }
 
-  // Завершаем работу бота по сигналам ОС
   handleShutdown() {
     const stop = (signal) => {
       logger.warn(`Bot stopped (${signal})`);
       this.bot.stop(signal);
-      if (this.emailInterval) {
-        clearInterval(this.emailInterval);
-      }
+      if (this.emailInterval) clearInterval(this.emailInterval);
       process.exit(0);
     };
 
@@ -172,11 +250,13 @@ class Bot {
   }
 }
 
+let bot;
 try {
-  new Bot();
+  bot = new Bot();
 } catch (error) {
   logger.error(`Bot initialization failed: ${error.message}`, { stack: error.stack });
   process.exit(1);
 }
 
+export { bot };
 export default Bot;

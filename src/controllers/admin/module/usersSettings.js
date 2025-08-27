@@ -20,6 +20,11 @@ export default function user_settings(scene) {
   const replyWithBack = (ctx, text, backCbData, extraRows = []) =>
     ctx.reply(text, kb([...extraRows, [{ text: 'Назад', callback_data: backCbData }]]));
 
+  /** читаем editScene из сессии (поддерживаем оба варианта хранения) */
+  const getEditScene = (ctx) =>
+    (ctx.session?.sceneData?.editScene ?? ctx.session?.editScene);
+
+  /** показать карточку обращения */
   const showTicketView = async (ctx, ticket, files) => {
     const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
     await ctx.reply(
@@ -27,7 +32,7 @@ export default function user_settings(scene) {
       kb([
         [{ text: 'Скачать архив', callback_data: `download_ticket_${ticket.id}` }],
         [{ text: 'Назад', callback_data: `user_requests_${ticket.user_id}` }],
-      ])
+      ]),
     );
 
     if (files && files.length) {
@@ -42,10 +47,14 @@ export default function user_settings(scene) {
   scene.action('user_settings', async (ctx) => {
     try {
       await ctx.deleteMessage();
-      await ctx.reply('Введите ID, firstName, lastName или username для поиска пользователей:', kb([
-        [{ text: 'Отмена', callback_data: 'back_to_main' }],
-      ]));
+      await ctx.reply(
+        'Введите ID, firstName, lastName или username для поиска пользователей:',
+        kb([[{ text: 'Отмена', callback_data: 'back_to_main' }]]),
+      );
+      // выставляем ожидание ввода
+      // eslint-disable-next-line no-param-reassign
       ctx.session.waitingForUserInput = true;
+      // eslint-disable-next-line no-param-reassign
       ctx.session.action = 'find_user_for_db';
     } catch (error) {
       logger.error(`Error in user_settings: ${error.message}`, { stack: error.stack });
@@ -76,7 +85,7 @@ export default function user_settings(scene) {
           [{ text: 'Заблокировать', callback_data: `block_user_${user.id}` }],
           [{ text: 'Удалить', callback_data: `delete_user_${user.id}` }],
           [{ text: 'Назад', callback_data: 'scene_user_management' }],
-        ])
+        ]),
       );
     } catch (error) {
       logger.error(`Error in user selection: ${error.message}`, { stack: error.stack });
@@ -111,10 +120,13 @@ export default function user_settings(scene) {
     try {
       await ctx.deleteMessage();
       const userId = ctx.match[1];
-      await ctx.reply('Введите ID обращения (только цифры):', kb([
-        [{ text: 'Назад', callback_data: `user_requests_${userId}` }],
-      ]));
+      await ctx.reply(
+        'Введите ID обращения (только цифры):',
+        kb([[{ text: 'Назад', callback_data: `user_requests_${userId}` }]]),
+      );
+      // eslint-disable-next-line no-param-reassign
       ctx.session.waitingForUserInput = true;
+      // eslint-disable-next-line no-param-reassign
       ctx.session.action = `search_ticket_${userId}`;
     } catch (error) {
       logger.error(`Error in search_ticket_input: ${error.message}`, { stack: error.stack });
@@ -157,7 +169,13 @@ export default function user_settings(scene) {
       archive.pipe(stream);
 
       const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
-      let info = `Организация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\nДата отправки: ${createdAt}\n\nТекст обращения:\n${ticket.message}\n\nВложения:\n`;
+      let info =
+        `Организация: ${ticket.organization || 'Не указано'}\n` +
+        `Филиал: ${ticket.branch || 'Не указано'}\n` +
+        `Классификация: ${ticket.classification}\n` +
+        `Дата отправки: ${createdAt}\n\n` +
+        `Текст обращения:\n${ticket.message}\n\n` +
+        'Вложения:\n';
       if (files && files.length) {
         info += files.map((f, i) => `${i + 1}. ${path.basename(f.path || `file_${f.id || ''}`)} - ${f.title || ''}`).join('\n');
       } else {
@@ -183,24 +201,52 @@ export default function user_settings(scene) {
   });
 
   scene.action(/^change_role_(\d+)$/, async (ctx) => {
-    return await ctx.answerCbQuery('Функция пока в разработке');
+    await ctx.answerCbQuery('Функция пока в разработке');
   });
 
   // === text input (role + search by id) ===
   scene.on('text', async (ctx) => {
-    // update role
+    // 0) если это slash-команда — не трогаем, пусть её обработают глобальные хендлеры (/start, /menu, ...)
+    const rawText = (ctx.message?.text || '').trim();
+    if (rawText.startsWith('/')) {
+      // сброс «ожиданий ввода», чтобы не висело состояние
+      // eslint-disable-next-line no-param-reassign
+      ctx.session.waitingForUserInput = false;
+      delete ctx.session.action;
+      return;
+    }
+
+    // 1) если editScene отсутствует — уходим в начальную сцену
+    const editScene = getEditScene(ctx);
+    if (typeof editScene === 'undefined') {
+      logger.info('editScene is undefined inside user_settings, redirecting to welcome', {
+        user: ctx.from?.id,
+      });
+
+      // сбрасываем ожидания и выходим из текущей сцены
+      // eslint-disable-next-line no-param-reassign
+      ctx.session.waitingForUserInput = false;
+      delete ctx.session.action;
+
+      await ctx.scene.leave().catch(() => {});
+      await ctx.scene.enter('welcome');
+      return;
+    }
+
+    // 2) update role
     if (ctx.session.action && ctx.session.action.startsWith('update_role_')) {
       try {
         const userId = ctx.session.action.split('_')[2];
-        const newRole = ctx.message.text.trim();
+        const newRole = rawText;
         if (!newRole) {
           await replyWithBack(ctx, 'Ошибка: введите корректное значение роли.', `user_${userId}`);
           return;
         }
         await updateUserRole(userId, newRole);
-        await ctx.reply(`Роль пользователя успешно изменена на ${newRole}.`, kb([
-          [{ text: 'Назад', callback_data: `user_${userId}` }],
-        ]));
+        await ctx.reply(
+          `Роль пользователя успешно изменена на ${newRole}.`,
+          kb([[{ text: 'Назад', callback_data: `user_${userId}` }]]),
+        );
         delete ctx.session.action;
       } catch (error) {
         logger.error(`Error in updating user role: ${error.message}`, { stack: error.stack });
@@ -209,12 +255,11 @@ export default function user_settings(scene) {
       return;
     }
 
-    // search ticket by id (digits only)
+    // 3) search ticket by id (digits only)
     if (ctx.session.action && ctx.session.action.startsWith('search_ticket_')) {
       const userId = ctx.session.action.split('_')[2];
       try {
-        const raw = (ctx.message.text || '');
-        const digits = raw.replace(/\D/g, ''); // только цифры
+        const digits = rawText.replace(/\D/g, ''); // только цифры
 
         if (!digits) {
           await replyWithBack(
@@ -242,6 +287,8 @@ export default function user_settings(scene) {
         const { ticket, files } = details;
         await showTicketView(ctx, ticket, files);
 
+        // сбрасываем ожидание ввода после удачного поиска
+        // eslint-disable-next-line no-param-reassign
         ctx.session.waitingForUserInput = false;
         delete ctx.session.action;
       } catch (error) {
@@ -261,9 +308,10 @@ export default function user_settings(scene) {
       const userId = ctx.match[1];
       const user = await blockUser(userId);
       await ctx.answerCbQuery();
-      await ctx.reply(`Пользователь ${user.is_blocked ? 'заблокирован' : 'разблокирован'}.`, kb([
-        [{ text: 'Назад', callback_data: `user_${userId}` }],
-      ]));
+      await ctx.reply(
+        `Пользователь ${user.is_blocked ? 'заблокирован' : 'разблокирован'}.`,
+        kb([[{ text: 'Назад', callback_data: `user_${userId}` }]]),
+      );
     } catch (error) {
       logger.error(`Error blocking user: ${error.message}`, { stack: error.stack });
       await replyWithBack(ctx, 'Ошибка при изменении статуса пользователя.', 'scene_user_management');
@@ -286,4 +334,3 @@ export default function user_settings(scene) {
     }
   });
 }
-
