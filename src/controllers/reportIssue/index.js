@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import db from '../../../db/db.js';
+import ConfigLoader from '../../utils/configLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,15 +15,26 @@ const reportIssue = new Scenes.BaseScene('reportIssue');
 const MAX_FILES = 10;
 // Максимальный размер файла (20 МБ в байтах)
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 МБ
+// Максимальный общий объем файлов (24 МБ в байтах)
+const MAX_TOTAL_SIZE = 24 * 1024 * 1024; // 24 МБ
+
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024);
+const MAX_TOTAL_SIZE_MB = MAX_TOTAL_SIZE / (1024 * 1024);
 
 reportIssue.enter(async (ctx) => {
     try {
+        const config = await ConfigLoader.loadConfig();
+        const reportConfig = config.controllers?.reportIssue;
+        const textTemplate = reportConfig?.text || 'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). Максимум {MAX_FILES} файлов, размер каждого файла не более {MAX_FILE_SIZE} МБ, общий объем не более {MAX_TOTAL_SIZE} МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.';
+        const messageText = textTemplate
+            .replace('{MAX_FILES}', MAX_FILES)
+            .replace('{MAX_FILE_SIZE}', MAX_FILE_SIZE_MB)
+            .replace('{MAX_TOTAL_SIZE}', MAX_TOTAL_SIZE_MB);
         await ctx.reply(
-            'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). ' +
-            `Максимум ${MAX_FILES} файлов, размер каждого файла не более 20 МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.`,
+            messageText,
             {
                 reply_markup: {
-                    keyboard: [['Готово'], ['Назад']],
+                    keyboard: [['Готово'], ['Назад'], ['Отменить заполнение']],
                     resize_keyboard: true,
                     one_time_keyboard: true
                 }
@@ -30,7 +42,8 @@ reportIssue.enter(async (ctx) => {
         );
         ctx.session.issueData = {
             description: '',
-            files: [] // Теперь будет массив объектов { name, buffer, caption }
+            files: [], // Теперь будет массив объектов { name, buffer, caption }
+            totalSize: 0
         };
         logger.info(`User ${ctx.from.id} entered reportIssue scene`);
     } catch (error) {
@@ -44,6 +57,30 @@ reportIssue.enter(async (ctx) => {
 // Обработка текстового ввода
 reportIssue.on('text', async (ctx) => {
     const text = ctx.message.text;
+
+    if (text === 'Отменить заполнение') {
+        try {
+            delete ctx.session.issueData;
+            delete ctx.session.selectedOrg;
+            delete ctx.session.selectedBranch;
+            delete ctx.session.selectedClassification;
+            delete ctx.session.ticketType;
+            delete ctx.session.classifications;
+            delete ctx.session.waitingForClassification;
+            delete ctx.session.waitingForBranch;
+            delete ctx.session.waitingForOrg;
+            await ctx.reply('Заполнение обращения было отменено.', {
+                reply_markup: { remove_keyboard: true }
+            });
+            await ctx.scene.enter('welcome');
+        } catch (error) {
+            logger.error(`Error in cancel action: ${error.message}`);
+            await ctx.reply('Извините, произошла ошибка', {
+                reply_markup: { remove_keyboard: true }
+            });
+        }
+        return;
+    }
 
     if (text === 'Назад') {
         try {
@@ -104,7 +141,7 @@ reportIssue.on('text', async (ctx) => {
             const issueData = {
                 user: ctx.from.id.toString(),
                 type: ctx.session.ticketType,
-                company: ctx.session.selectedOrganization,
+                company: ctx.session.selectedOrganization || 'Не указано',
                 filial: ctx.session.selectedBranch,
                 classification: ctx.session.selectedClassification,
                 text: ctx.session.issueData.description,
@@ -214,6 +251,12 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
             return;
         }
 
+        const remainingTotal = MAX_TOTAL_SIZE - ctx.session.issueData.totalSize;
+        if (fileSize > remainingTotal) {
+            await ctx.reply(`Нельзя загрузить файл, превышен общий лимит 24 МБ. Осталось ${(remainingTotal / (1024 * 1024)).toFixed(2)} МБ.`);
+            return;
+        }
+
         const fileLink = await ctx.telegram.getFileLink(file.file_id);
         const response = await fetch(fileLink);
         const buffer = Buffer.from(await response.arrayBuffer());
@@ -224,8 +267,10 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
             buffer: buffer,
             caption: caption
         });
+        ctx.session.issueData.totalSize += fileSize;
 
-        await ctx.reply(`Файл ${fileName} добавлен${caption ? ' с описанием: ' + caption : ''}. Осталось ${MAX_FILES - ctx.session.issueData.files.length} из ${MAX_FILES} файлов.`);
+        const freeSpace = MAX_TOTAL_SIZE - ctx.session.issueData.totalSize;
+        await ctx.reply(`Файл ${fileName} добавлен${caption ? ' с описанием: ' + caption : ''}. Осталось ${MAX_FILES - ctx.session.issueData.files.length} из ${MAX_FILES} файлов. Свободно ${(freeSpace / (1024 * 1024)).toFixed(2)} МБ из 24 МБ.`);
         logger.info(`User ${ctx.from.id} uploaded file ${fileName}${caption ? ' with caption: ' + caption : ''}`);
     } catch (error) {
         logger.error(`Error handling file upload: ${error.message}`);
@@ -257,7 +302,7 @@ async function saveTicketFromFolder(telegramId, ticketFolder) {
       .insert({
         user_id: user.id,
         message: issueData.text,
-        organization: issueData.company,
+        organization: issueData.company || 'Не указано',
         branch: issueData.filial,
         classification: issueData.classification,
         created_at: db.fn.now(),

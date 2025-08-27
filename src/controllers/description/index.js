@@ -32,7 +32,7 @@ description.enter(async (ctx) => {
                 inline_keyboard: [
                     [
                         { text: '🚀 Начать', callback_data: 'start_ticket' },
-                        { text: 'Отменить', callback_data: 'cancel' }
+                        { text: 'Отменить заполнение', callback_data: 'cancel' }
                     ]
                 ]
             }
@@ -162,8 +162,9 @@ description.action('cancel', async (ctx) => {
             );
         }
 
-        await ctx.scene.enter('welcome');
-        logger.info(`User ${ctx.from.id} cancelled description, returned to welcome scene`);
+          await ctx.reply('Заполнение обращения было отменено.');
+          await ctx.scene.enter('welcome');
+          logger.info(`User ${ctx.from.id} cancelled description, returned to welcome scene`);
     } catch (error) {
         logger.error(`Error in cancel action: ${error.message}`);
         await ctx.reply('Извините, произошла ошибка');

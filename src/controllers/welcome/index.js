@@ -3,7 +3,49 @@ import logger from '../../utils/logger.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import ConfigLoader from '../../utils/configLoader.js';
-import { findUserByTelegramId } from '../../../db/users.js';
+import { findUserByTelegramId, getTicketsByUserId } from '../../../db/users.js';
+
+const TICKETS_PER_PAGE = 10;
+const MAX_TICKET_TEXT_LENGTH = 100;
+
+function formatTicketsPage(tickets, page) {
+    const start = page * TICKETS_PER_PAGE;
+    const pageTickets = tickets.slice(start, start + TICKETS_PER_PAGE);
+
+    if (!pageTickets.length) {
+        return 'У вас пока нет обращений';
+    }
+
+    let message = 'Ваши обращения:\n';
+    for (const ticket of pageTickets) {
+        const date = new Date(ticket.created_at).toLocaleString('ru-RU');
+        let text = ticket.message || '';
+        if (text.length > MAX_TICKET_TEXT_LENGTH) {
+            text = text.slice(0, MAX_TICKET_TEXT_LENGTH - 3) + '...';
+        }
+        message += `\n#${ticket.id} | ${date}\n${text}\n`;
+    }
+
+    return message.trim();
+}
+
+function buildTicketsKeyboard(page, totalPages) {
+    const navButtons = [];
+    if (page > 0) {
+        navButtons.push({ text: '⬅️ Назад', callback_data: 'tickets_prev' });
+    }
+    if (page < totalPages - 1) {
+        navButtons.push({ text: 'Вперед ➡️', callback_data: 'tickets_next' });
+    }
+
+    const keyboard = [];
+    if (navButtons.length) {
+        keyboard.push(navButtons);
+    }
+    keyboard.push([{ text: 'В меню', callback_data: 'back_to_welcome' }]);
+
+    return { reply_markup: { inline_keyboard: keyboard } };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +137,7 @@ welcome.enter(async (ctx) => {
         ctx.session.lastBotMessage = {
             messageId: message.message_id,
             chatId: message.chat.id,
+            text: welcomeConfig.text,
             date: new Date().toISOString(),
             type: welcomeConfig.image?.enabled ? 'photo' : 'text'
         };
@@ -148,7 +191,75 @@ welcome.action('create_ticket', async (ctx) => {
 });
 
 welcome.action('my_tickets', async (ctx) => {
-   return await ctx.answerCbQuery('Функция "Мои обращения" пока в разработке');
+    try {
+        const userId = ctx.session.user?.id;
+        if (!userId) {
+            throw new Error('User not found in session');
+        }
+
+        const tickets = await getTicketsByUserId(userId);
+        await ctx.answerCbQuery();
+
+        ctx.session.ticketPagination = {
+            tickets,
+            page: 0
+        };
+
+        const totalPages = Math.ceil(tickets.length / TICKETS_PER_PAGE) || 1;
+        const message = formatTicketsPage(tickets, 0);
+        const options = buildTicketsKeyboard(0, totalPages);
+
+        await ctx.reply(message, options);
+        logger.info(`User ${ctx.from.id} requested ticket list`);
+    } catch (error) {
+        logger.error(`Error in my_tickets action: ${error.message}`);
+        await ctx.answerCbQuery('Не удалось получить обращения', { show_alert: true });
+    }
+});
+
+welcome.action('tickets_next', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        const pagination = ctx.session.ticketPagination;
+        if (!pagination) return;
+        const totalPages = Math.ceil(pagination.tickets.length / TICKETS_PER_PAGE) || 1;
+        if (pagination.page < totalPages - 1) {
+            pagination.page++;
+        }
+        const message = formatTicketsPage(pagination.tickets, pagination.page);
+        const options = buildTicketsKeyboard(pagination.page, totalPages);
+        await ctx.editMessageText(message, options);
+    } catch (error) {
+        logger.error(`Error in tickets_next action: ${error.message}`);
+    }
+});
+
+welcome.action('tickets_prev', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        const pagination = ctx.session.ticketPagination;
+        if (!pagination) return;
+        const totalPages = Math.ceil(pagination.tickets.length / TICKETS_PER_PAGE) || 1;
+        if (pagination.page > 0) {
+            pagination.page--;
+        }
+        const message = formatTicketsPage(pagination.tickets, pagination.page);
+        const options = buildTicketsKeyboard(pagination.page, totalPages);
+        await ctx.editMessageText(message, options);
+    } catch (error) {
+        logger.error(`Error in tickets_prev action: ${error.message}`);
+    }
+});
+
+welcome.action('back_to_welcome', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        await ctx.deleteMessage().catch(() => {});
+        await ctx.scene.reenter();
+        logger.info(`User ${ctx.from.id} returned to welcome scene`);
+    } catch (error) {
+        logger.error(`Error in back_to_welcome action: ${error.message}`);
+    }
 });
 
 welcome.action('manager_admin', async (ctx) => {

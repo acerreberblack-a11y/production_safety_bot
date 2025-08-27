@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import logger from '../../../utils/logger.js';
 
 // Определяем пути
 const __filename = fileURLToPath(import.meta.url);
@@ -30,6 +31,10 @@ export default function sceneSettings(scene) {
                         [{ text: 'Стартовая', callback_data: 'scene_welcome' }],
                         [{ text: 'Описание', callback_data: 'scene_description' }],
                         [{ text: 'Тип обращения', callback_data: 'scene_ticketType' }],
+                        [{ text: 'Email авторизация', callback_data: 'scene_emailAuth' }],
+                        [{ text: 'Организация', callback_data: 'scene_organization' }],
+                        [{ text: 'Классификация', callback_data: 'scene_classification' }],
+                        [{ text: 'Описание проблемы', callback_data: 'scene_reportIssue' }],
                         [{ text: 'Admin', callback_data: 'scene_admin' }],
                         [{ text: 'Назад', callback_data: 'back_to_main' }]
                     ]
@@ -95,6 +100,78 @@ export default function sceneSettings(scene) {
         } catch (error) {
             logger.error(`Error in scene_ticketType action: ${error.message}`, { stack: error.stack });
             await ctx.reply('Извините, произошла ошибка при отображении настроек сцены ticketType.');
+        }
+    });
+
+    // Обработка выбора сцены emailAuth
+    scene.action('scene_emailAuth', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Выберите действие для сцены emailAuth:', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Изменить текст', callback_data: 'edit_text_emailAuth' }],
+                        [{ text: 'Назад', callback_data: 'scene_settings' }]
+                    ]
+                }
+            });
+        } catch (error) {
+            logger.error(`Error in scene_emailAuth action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении настроек сцены emailAuth.');
+        }
+    });
+
+    // Обработка выбора сцены organization
+    scene.action('scene_organization', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Выберите действие для сцены organization:', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Изменить текст', callback_data: 'edit_text_organization' }],
+                        [{ text: 'Назад', callback_data: 'scene_settings' }]
+                    ]
+                }
+            });
+        } catch (error) {
+            logger.error(`Error in scene_organization action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении настроек сцены organization.');
+        }
+    });
+
+    // Обработка выбора сцены classification
+    scene.action('scene_classification', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Выберите действие для сцены classification:', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Изменить текст', callback_data: 'edit_text_classification' }],
+                        [{ text: 'Назад', callback_data: 'scene_settings' }]
+                    ]
+                }
+            });
+        } catch (error) {
+            logger.error(`Error in scene_classification action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении настроек сцены classification.');
+        }
+    });
+
+    // Обработка выбора сцены reportIssue
+    scene.action('scene_reportIssue', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            await ctx.reply('Выберите действие для сцены reportIssue:', {
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: 'Изменить текст', callback_data: 'edit_text_reportIssue' }],
+                        [{ text: 'Назад', callback_data: 'scene_settings' }]
+                    ]
+                }
+            });
+        } catch (error) {
+            logger.error(`Error in scene_reportIssue action: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении настроек сцены reportIssue.');
         }
     });
 
@@ -185,6 +262,98 @@ export default function sceneSettings(scene) {
         } catch (error) {
             logger.error(`Error in edit_text_ticketType: ${error.message}`, { stack: error.stack });
             await ctx.reply('Извините, произошла ошибка при отображении текста сцены ticketType.');
+        }
+    });
+
+    // Обработка изменения текста для emailAuth
+    scene.action('edit_text_emailAuth', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const config = await ConfigLoader.loadConfig();
+            const currentText = config.controllers.emailAuth.text || 'Текст не задан';
+            await ctx.replyWithHTML(
+                `Текущий текст сцены emailAuth:\n\n${currentText}\n\nЕсли хотите изменить текст, напишите его ниже. Если нет, нажмите "Отмена".`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Отмена', callback_data: 'scene_emailAuth' }]
+                        ]
+                    }
+                }
+            );
+            ctx.session.editScene = 'emailAuth';
+        } catch (error) {
+            logger.error(`Error in edit_text_emailAuth: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении текста сцены emailAuth.');
+        }
+    });
+
+    // Обработка изменения текста для organization
+    scene.action('edit_text_organization', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const config = await ConfigLoader.loadConfig();
+            const currentText = config.controllers.organization.text || 'Текст не задан';
+            await ctx.replyWithHTML(
+                `Текущий текст сцены organization:\n\n${currentText}\n\nЕсли хотите изменить текст, напишите его ниже. Если нет, нажмите "Отмена".`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Отмена', callback_data: 'scene_organization' }]
+                        ]
+                    }
+                }
+            );
+            ctx.session.editScene = 'organization';
+        } catch (error) {
+            logger.error(`Error in edit_text_organization: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении текста сцены organization.');
+        }
+    });
+
+    // Обработка изменения текста для classification
+    scene.action('edit_text_classification', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const config = await ConfigLoader.loadConfig();
+            const currentText = config.controllers.classification.text || 'Текст не задан';
+            await ctx.replyWithHTML(
+                `Текущий текст сцены classification:\n\n${currentText}\n\nЕсли хотите изменить текст, напишите его ниже. Если нет, нажмите "Отмена".`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Отмена', callback_data: 'scene_classification' }]
+                        ]
+                    }
+                }
+            );
+            ctx.session.editScene = 'classification';
+        } catch (error) {
+            logger.error(`Error in edit_text_classification: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении текста сцены classification.');
+        }
+    });
+
+    // Обработка изменения текста для reportIssue
+    scene.action('edit_text_reportIssue', async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const config = await ConfigLoader.loadConfig();
+            const currentText = config.controllers.reportIssue.text || 'Текст не задан';
+            await ctx.replyWithHTML(
+                `Текущий текст сцены reportIssue:\n\n${currentText}\n\nЕсли хотите изменить текст, напишите его ниже. Если нет, нажмите "Отмена".`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [{ text: 'Отмена', callback_data: 'scene_reportIssue' }]
+                        ]
+                    }
+                }
+            );
+            ctx.session.editScene = 'reportIssue';
+        } catch (error) {
+            logger.error(`Error in edit_text_reportIssue: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Извините, произошла ошибка при отображении текста сцены reportIssue.');
         }
     });
 
