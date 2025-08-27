@@ -89,7 +89,6 @@ export default function user_settings(scene) {
             await ctx.reply('Ошибка при получении обращений пользователя.');
         }
     });
-
     scene.action(/^search_ticket_input_(\d+)$/, async (ctx) => {
         try {
             await ctx.deleteMessage();
@@ -106,7 +105,6 @@ export default function user_settings(scene) {
             await ctx.reply('Ошибка при подготовке поиска обращения.');
         }
     });
-
     scene.action(/^ticket_(\d+)$/, async (ctx) => {
         try {
             await ctx.deleteMessage();
@@ -158,7 +156,6 @@ export default function user_settings(scene) {
             const chunks = [];
             stream.on('data', chunk => chunks.push(chunk));
             archive.pipe(stream);
-
             const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
             let info = `Организация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\nДата отправки: ${createdAt}\n\nТекст обращения:\n${ticket.message}\n\nВложения:\n`;
             if (files && files.length) {
