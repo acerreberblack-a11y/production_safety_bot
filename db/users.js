@@ -180,6 +180,17 @@ async function createFile(ticketId, title, expansion, size, path) {
     }
 }
 
+async function getTicketsByUserId(userId) {
+    try {
+        return await db('tickets')
+            .where({ user_id: userId })
+            .orderBy('created_at', 'desc');
+    } catch (error) {
+        console.error(`Error fetching tickets for user ${userId}: ${error.message}`);
+        throw error;
+    }
+}
+
 export {
     createUser,
     findUserByTelegramId,
@@ -192,5 +203,6 @@ export {
     blockUser,
     deleteUser,
     createTicket,
-    createFile
+    createFile,
+    getTicketsByUserId
 };
