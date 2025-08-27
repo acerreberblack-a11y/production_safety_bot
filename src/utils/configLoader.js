@@ -271,6 +271,36 @@ class ConfigLoader {
         logger.info(`Hid organization with key ${orgKey}`);
     }
 
+    // === Administrators ===
+    static async addAdministrator(telegramId) {
+        const config = await ConfigLoader.loadConfig();
+        config.administrators = config.administrators || [];
+        const id = Number(telegramId);
+        if (!config.administrators.includes(id)) {
+            config.administrators.push(id);
+            await ConfigLoader.saveConfig(config);
+            logger.info(`Added administrator ${id}`);
+            return true;
+        }
+        logger.warn(`Administrator ${id} already exists`);
+        return false;
+    }
+
+    static async removeAdministrator(telegramId) {
+        const config = await ConfigLoader.loadConfig();
+        config.administrators = config.administrators || [];
+        const id = Number(telegramId);
+        const index = config.administrators.indexOf(id);
+        if (index !== -1) {
+            config.administrators.splice(index, 1);
+            await ConfigLoader.saveConfig(config);
+            logger.info(`Removed administrator ${id}`);
+            return true;
+        }
+        logger.warn(`Administrator ${id} not found`);
+        return false;
+    }
+
     static async updateSceneText(sceneKey, text) {
         const config = await ConfigLoader.loadConfig();
         if (!config.controllers[sceneKey]) {
