@@ -13,7 +13,7 @@ import classification from "./controllers/classification/index.js";
 import reportIssue from "./controllers/reportIssue/index.js";
 import admin from "./controllers/admin/index.js";
 import userCheckMiddleware from "./middlewares/checkUser.js";
-import { startTicketEmailSender } from "./utils/emailConfig.js";
+import { startReportEmailSender } from "./utils/emailConfig.js";
 
 
 dotenv.config();
@@ -58,7 +58,7 @@ class Bot {
     this.setupMiddleware();
     this.registerHandlers();
     this.start();
-    this.emailInterval = startTicketEmailSender();
+    this.emailInterval = startReportEmailSender();
   }
 
   setupMiddleware() {

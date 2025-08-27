@@ -14,15 +14,17 @@ const reportIssue = new Scenes.BaseScene('reportIssue');
 const MAX_FILES = 10;
 // Максимальный размер файла (20 МБ в байтах)
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 МБ
+// Максимальный общий объем файлов (24 МБ в байтах)
+const MAX_TOTAL_SIZE = 24 * 1024 * 1024; // 24 МБ
 
 reportIssue.enter(async (ctx) => {
     try {
         await ctx.reply(
             'Пожалуйста, опишите вашу проблему. Вы также можете прикрепить файлы (изображения, видео, кружки, голосовые сообщения, PDF, документы). ' +
-            `Максимум ${MAX_FILES} файлов, размер каждого файла не более 20 МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.`,
+            `Максимум ${MAX_FILES} файлов, размер каждого файла не более 20 МБ, общий объем не более 24 МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.`,
             {
                 reply_markup: {
-                    keyboard: [['Готово'], ['Назад']],
+                    keyboard: [['Готово'], ['Назад'], ['Отменить заполнение']],
                     resize_keyboard: true,
                     one_time_keyboard: true
                 }
@@ -30,7 +32,8 @@ reportIssue.enter(async (ctx) => {
         );
         ctx.session.issueData = {
             description: '',
-            files: [] // Теперь будет массив объектов { name, buffer, caption }
+            files: [], // Теперь будет массив объектов { name, buffer, caption }
+            totalSize: 0
         };
         logger.info(`User ${ctx.from.id} entered reportIssue scene`);
     } catch (error) {
@@ -44,6 +47,30 @@ reportIssue.enter(async (ctx) => {
 // Обработка текстового ввода
 reportIssue.on('text', async (ctx) => {
     const text = ctx.message.text;
+
+    if (text === 'Отменить заполнение') {
+        try {
+            delete ctx.session.issueData;
+            delete ctx.session.selectedOrg;
+            delete ctx.session.selectedBranch;
+            delete ctx.session.selectedClassification;
+            delete ctx.session.ticketType;
+            delete ctx.session.classifications;
+            delete ctx.session.waitingForClassification;
+            delete ctx.session.waitingForBranch;
+            delete ctx.session.waitingForOrg;
+            await ctx.reply('Заполнение обращения было отменено.', {
+                reply_markup: { remove_keyboard: true }
+            });
+            await ctx.scene.enter('welcome');
+        } catch (error) {
+            logger.error(`Error in cancel action: ${error.message}`);
+            await ctx.reply('Извините, произошла ошибка', {
+                reply_markup: { remove_keyboard: true }
+            });
+        }
+        return;
+    }
 
     if (text === 'Назад') {
         try {
@@ -104,7 +131,7 @@ reportIssue.on('text', async (ctx) => {
             const issueData = {
                 user: ctx.from.id.toString(),
                 type: ctx.session.ticketType,
-                company: ctx.session.selectedOrganization,
+                company: ctx.session.selectedOrganization || 'Не указано',
                 filial: ctx.session.selectedBranch,
                 classification: ctx.session.selectedClassification,
                 text: ctx.session.issueData.description,
@@ -214,6 +241,12 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
             return;
         }
 
+        const remainingTotal = MAX_TOTAL_SIZE - ctx.session.issueData.totalSize;
+        if (fileSize > remainingTotal) {
+            await ctx.reply(`Нельзя загрузить файл, превышен общий лимит 24 МБ. Осталось ${(remainingTotal / (1024 * 1024)).toFixed(2)} МБ.`);
+            return;
+        }
+
         const fileLink = await ctx.telegram.getFileLink(file.file_id);
         const response = await fetch(fileLink);
         const buffer = Buffer.from(await response.arrayBuffer());
@@ -224,8 +257,10 @@ reportIssue.on(['photo', 'video', 'video_note', 'voice', 'document'], async (ctx
             buffer: buffer,
             caption: caption
         });
+        ctx.session.issueData.totalSize += fileSize;
 
-        await ctx.reply(`Файл ${fileName} добавлен${caption ? ' с описанием: ' + caption : ''}. Осталось ${MAX_FILES - ctx.session.issueData.files.length} из ${MAX_FILES} файлов.`);
+        const freeSpace = MAX_TOTAL_SIZE - ctx.session.issueData.totalSize;
+        await ctx.reply(`Файл ${fileName} добавлен${caption ? ' с описанием: ' + caption : ''}. Осталось ${MAX_FILES - ctx.session.issueData.files.length} из ${MAX_FILES} файлов. Свободно ${(freeSpace / (1024 * 1024)).toFixed(2)} МБ из 24 МБ.`);
         logger.info(`User ${ctx.from.id} uploaded file ${fileName}${caption ? ' with caption: ' + caption : ''}`);
     } catch (error) {
         logger.error(`Error handling file upload: ${error.message}`);
@@ -257,7 +292,7 @@ async function saveTicketFromFolder(telegramId, ticketFolder) {
       .insert({
         user_id: user.id,
         message: issueData.text,
-        organization: issueData.company,
+        organization: issueData.company || 'Не указано',
         branch: issueData.filial,
         classification: issueData.classification,
         created_at: db.fn.now(),

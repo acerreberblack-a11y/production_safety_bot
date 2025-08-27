@@ -67,7 +67,12 @@ organization.on('text', async (ctx) => {
     {
         try {
             delete ctx.session.waitingForBranch;
+            delete ctx.session.waitingForOrg;
             delete ctx.session.selectedOrg;
+            delete ctx.session.selectedBranch;
+            delete ctx.session.selectedClassification;
+            delete ctx.session.issueData;
+            delete ctx.session.ticketType;
 
             await ctx.reply(`Заполнение обращения было отменено.`, {
                     reply_markup: { remove_keyboard: true }
