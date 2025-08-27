@@ -63,7 +63,13 @@ class Bot {
         deserialize: (str) => JSON.parse(str)
       },
       state: { messages: [], sceneData: {} },
-      getSessionKey: (ctx) => ctx.chat?.id?.toString()
+      getSessionKey: (ctx) => {
+        const chatId = ctx.chat?.id;
+        const userId = ctx.from?.id;
+        return userId && chatId
+          ? `${chatId}:${userId}`
+          : chatId?.toString();
+      }
     });
 
     // Подключаем защиты от спама, проверки пользователя, сессию и сцены
