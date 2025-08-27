@@ -193,10 +193,11 @@ const sendReportsFromFolder = async () => {
             }
           }
 
-          const attachmentsHtml = buildAttachmentsHtml(issueData.files || []);
+          const attachmentsHtml = buildAttachmentsHtml(issueData.files ?? []);
+
           const ticketData = {
             id: ticketDir.name,
-            user_email: issueData.user,
+            user_email: issueData.type ? `${issueData.user} (${issueData.type})` : 'Аноним',
             organization: issueData.company,
             branch: issueData.filial,
             classification: issueData.classification,
@@ -211,7 +212,7 @@ const sendReportsFromFolder = async () => {
 
           const htmlContent = buildHtmlContent(ticketData, attachmentsHtml, effectiveTemplate);
 
-          const subjectTemplate = ticket_subject || 'Ticket #{{ticketId}} - {{classification}}';
+          const subjectTemplate = ticket_subject || 'Обращение #{{ticketId}} - {{classification}}';
           const subject = applyTemplate(subjectTemplate, {
             ticketId: ticketData.id,
             classification: ticketData.classification,
@@ -221,14 +222,14 @@ const sendReportsFromFolder = async () => {
             from: user,
             to,
             subject,
-            html: htmlContent,    // ← HTML тело по умолчанию
+            html: htmlContent,
             text:
 `Пользователь: ${ticketData.user_email}
 Организация: ${ticketData.organization}
 Филиал: ${ticketData.branch}
 Классификация: ${ticketData.classification}
 
-${ticketData.message || ''}`,           // fallback
+${ticketData.message || ''}`,
             attachments,
           });
 

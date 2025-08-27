@@ -148,6 +148,7 @@ organization.on('text', async (ctx) => {
             // Если филиалов нет, переходим сразу в сцену classification с филиалом "default"
             if (normalizedBranches.length === 0) {
                 ctx.session.selectedOrg = selectedOrgKey;
+                ctx.session.selectedOrganization = organization.name;
                 ctx.session.selectedBranch = 'default'; // Устанавливаем филиал как "default"
                 await ctx.reply(`Вы выбрали ${organization.name}. Филиалы отсутствуют, используется значение по умолчанию.`, {
                     reply_markup: { remove_keyboard: true }

@@ -169,7 +169,7 @@ reportIssue.on('text', async (ctx) => {
             // Сохранение в базу данных
             await saveTicketFromFolder(ctx.from.id.toString(), issueFolderName);
 
-            await ctx.reply(`Ваше обращение успешно создано в папке ${issueFolderName}! Вы вернетесь в главное меню.`, {
+            await ctx.reply(`Ваше обращение успешно создано!\nВы вернетесь в главное меню.`, {
                 reply_markup: { remove_keyboard: true }
             });
 

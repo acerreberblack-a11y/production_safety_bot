@@ -21,6 +21,7 @@ dotenv.config();
 
 const { BOT_TOKEN, PROXY_URL } = process.env;
 
+
 // Список доступных сцен
 const scenes = [welcome, description, ticketType, emailAuth, organization, classification, reportIssue, admin];
 
