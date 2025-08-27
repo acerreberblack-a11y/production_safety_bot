@@ -6,7 +6,7 @@ import sceneSettings from './module/sceneSettings.js';
 import orgSettings from './module/orgSettings.js';
 import classificationSettings from './module/classificationSettings.js';
 import emailSettings from './module/emailSettings.js';
-import user_settings from './module/usersSettings.js';
+import userSettings from './module/usersSettings.js';
 import {searchUsers} from "../../../db/users.js";
 
 const admin = new Scenes.BaseScene('admin');
@@ -315,7 +315,7 @@ try {
     orgSettings(admin);
     classificationSettings(admin);
     emailSettings(admin);
-    user_settings(admin);
+    userSettings(admin);
 } catch (error) {
     logger.error(`Error initializing admin modules: ${error.message}`, { stack: error.stack });
 }

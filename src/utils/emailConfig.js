@@ -3,20 +3,21 @@ import nodemailer from "nodemailer";
 import logger from "./logger.js";
 import db from '../../db/db.js';
 
-const config = await ConfigLoader.loadConfig();
-const { host, port, secure, user, password, rejectUnauthorized } = config.general?.email || {};
-
 const createTransporter = async () => {
+    const config = await ConfigLoader.loadConfig();
+    const { host, port, secure, user, password, rejectUnauthorized } =
+        config.general?.email || {};
+
     if (!host || !user || !password) {
         throw new Error('Не заданы параметры почты');
     }
 
     return nodemailer.createTransport({
-        host: host,
+        host,
         port: Number(port) || 587,
-        secure: secure || false,
+        secure: Boolean(secure),
         auth: {
-            user: user,
+            user,
             pass: password,
         },
         tls: {
@@ -27,10 +28,12 @@ const createTransporter = async () => {
 
 const sendCodeEmail = async (to, code) => {
     try {
+        const config = await ConfigLoader.loadConfig();
+        const { user } = config.general?.email || {};
         const transporter = await createTransporter();
         return await transporter.sendMail({
             from: user,
-            to: to,
+            to,
             subject: 'Код подтверждения',
             text: `Ваш код: ${code}`,
         });
@@ -40,8 +43,14 @@ const sendCodeEmail = async (to, code) => {
     }
 };
 
-const sendTicketEmail = async (to) => {
+const sendTicketEmail = async () => {
     try {
+        const config = await ConfigLoader.loadConfig();
+        const { user, support_email: to } = config.general?.email || {};
+        if (!to) {
+            throw new Error('Не указан адрес получателя для обращений');
+        }
+
         const transporter = await createTransporter();
 
         // Получаем тикеты с sent_email = false
@@ -183,7 +192,7 @@ const sendTicketEmail = async (to) => {
             // Настройка письма
             const mailOptions = {
                 from: user,
-                to: to,
+                to,
                 subject: `Ticket #${ticket.id} - ${ticket.classification}`,
                 html: htmlContent, // Используем HTML
                 attachments,
@@ -203,9 +212,17 @@ const sendTicketEmail = async (to) => {
         logger.error(`Error sending tickets: ${error.message}`, { stack: error.stack });
     }
 };
+const startTicketEmailSender = () => {
+    const intervalMs = 24 * 60 * 60 * 1000; // 24 часа
+    // отправка при старте
+    sendTicketEmail().catch((err) =>
+        logger.error(`Initial ticket send failed: ${err.message}`, { stack: err.stack })
+    );
+    return setInterval(() => {
+        sendTicketEmail().catch((err) =>
+            logger.error(`Scheduled ticket send failed: ${err.message}`, { stack: err.stack })
+        );
+    }, intervalMs);
+};
 
-// Вызываем метод периодически каждые 24 часа
-const targetEmail = 'ProlubnikovVV@rushydro.ru';
-setInterval(() => sendTicketEmail(targetEmail), 2000);
-
-export { sendCodeEmail, sendTicketEmail };
+export { sendCodeEmail, sendTicketEmail, startTicketEmailSender };
