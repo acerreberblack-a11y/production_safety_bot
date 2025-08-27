@@ -7,7 +7,6 @@ import orgSettings from './module/orgSettings.js';
 import classificationSettings from './module/classificationSettings.js';
 import emailSettings from './module/emailSettings.js';
 import user_settings from './module/usersSettings.js';
-import {searchUsers} from "../../../db/users.js";
 
 const admin = new Scenes.BaseScene('admin');
 
@@ -36,7 +35,6 @@ admin.enter(async (ctx) => {
 // Обработка возврата в главное меню
 admin.action('back_to_main', async (ctx) => {
     try {
-        await ctx.deleteMessage();
         await ctx.scene.reenter();
         logger.info(`User ${ctx.from.id} returned to main menu from admin scene`);
     } catch (error) {
@@ -48,7 +46,6 @@ admin.action('back_to_main', async (ctx) => {
 // Обработка выхода из сцены
 admin.action('scene_admin_exit', async (ctx) => {
     try {
-        await ctx.deleteMessage();
         await ctx.scene.enter('welcome');
         logger.info(`User ${ctx.from.id} exited admin scene`);
     } catch (error) {
@@ -58,8 +55,13 @@ admin.action('scene_admin_exit', async (ctx) => {
 });
 
 // Обработка ввода текста
-admin.on('text', async (ctx) => {
+admin.on('text', async (ctx, next) => {
     if (!ctx.session.action && !ctx.session.editScene) return;
+
+    const userActions = ['find_user_for_db', 'select_user', 'user_menu', 'update_role'];
+    if (userActions.includes(ctx.session.action)) {
+        return next();
+    }
 
     try {
         const text = ctx.message.text.trim();
@@ -254,39 +256,6 @@ admin.on('text', async (ctx) => {
                         ]
                     }
                 });
-            } else if (action === 'find_user_for_db')
-            {
-                if (!ctx.session.waitingForUserInput) return;
-
-                try {
-                    const query = ctx.message.text.trim();
-                    if (!query) {
-                        await ctx.reply('Введите корректные данные для поиска.');
-                        return;
-                    }
-
-                    const users = await searchUsers(query);
-                    if (users.length === 0) {
-                        await ctx.reply('Пользователи не найдены. Попробуйте снова.');
-                        return;
-                    }
-
-                    const keyboard = users.map(user => [{
-                        text: `${user.id} | ${user.username}`,
-                        callback_data: `user_${user.id}`
-                    }]);
-                    keyboard.push([{ text: 'Назад', callback_data: 'scene_user_management' }]);
-
-                    await ctx.reply('Выберите пользователя:', {
-                        reply_markup: { inline_keyboard: keyboard }
-                    });
-
-                    // Сбрасываем флаг ожидания ввода после успешного поиска
-                    ctx.session.waitingForUserInput = false;
-                } catch (error) {
-                    logger.error(`Error in user search: ${error.message}`, { stack: error.stack });
-                    await ctx.reply('Ошибка при поиске пользователей. Попробуйте снова.');
-                }
             }
             delete ctx.session.action;
         } else if (ctx.session.editScene) {
