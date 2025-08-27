@@ -78,6 +78,7 @@ export default function user_settings(scene) {
             }
 
             const keyboard = tickets.map(t => [{ text: `Обращение ${t.id}`, callback_data: `ticket_${t.id}` }]);
+            keyboard.push([{ text: 'Поиск по ID', callback_data: `search_ticket_input_${userId}` }]);
             keyboard.push([{ text: 'Назад', callback_data: `user_${userId}` }]);
 
             await ctx.reply('Выберите обращение:', {
@@ -88,7 +89,22 @@ export default function user_settings(scene) {
             await ctx.reply('Ошибка при получении обращений пользователя.');
         }
     });
-
+    scene.action(/^search_ticket_input_(\d+)$/, async (ctx) => {
+        try {
+            await ctx.deleteMessage();
+            const userId = ctx.match[1];
+            await ctx.reply('Введите ID обращения:', {
+                reply_markup: {
+                    inline_keyboard: [[{ text: 'Назад', callback_data: `user_requests_${userId}` }]]
+                }
+            });
+            ctx.session.waitingForUserInput = true;
+            ctx.session.action = `search_ticket_${userId}`;
+        } catch (error) {
+            logger.error(`Error in search_ticket_input: ${error.message}`, { stack: error.stack });
+            await ctx.reply('Ошибка при подготовке поиска обращения.');
+        }
+    });
     scene.action(/^ticket_(\d+)$/, async (ctx) => {
         try {
             await ctx.deleteMessage();
@@ -100,8 +116,9 @@ export default function user_settings(scene) {
             }
             const { ticket, files } = details;
 
+            const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
             await ctx.reply(
-                `Обращение #${ticket.id}\nОрганизация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\n\n${ticket.message}`,
+                `Обращение #${ticket.id}\nОрганизация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\nДата отправки: ${createdAt}\n\n${ticket.message}`,
                 {
                     reply_markup: {
                         inline_keyboard: [
@@ -139,8 +156,8 @@ export default function user_settings(scene) {
             const chunks = [];
             stream.on('data', chunk => chunks.push(chunk));
             archive.pipe(stream);
-
-            let info = `Организация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\n\nТекст обращения:\n${ticket.message}\n\nВложения:\n`;
+            const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
+            let info = `Организация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\nДата отправки: ${createdAt}\n\nТекст обращения:\n${ticket.message}\n\nВложения:\n`;
             if (files && files.length) {
                 info += files.map((f, i) => `${i + 1}. ${path.basename(f.path)} - ${f.title || ''}`).join('\n');
             } else {
@@ -218,3 +235,4 @@ export default function user_settings(scene) {
         }
     });
 }
+

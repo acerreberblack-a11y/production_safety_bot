@@ -7,7 +7,8 @@ import orgSettings from './module/orgSettings.js';
 import classificationSettings from './module/classificationSettings.js';
 import emailSettings from './module/emailSettings.js';
 import userSettings from './module/usersSettings.js';
-import { searchUsers, getStatistics } from "../../../db/users.js";
+import { searchUsers, getStatistics, getTicketDetails } from "../../../db/users.js";
+import path from 'path';
 
 const admin = new Scenes.BaseScene('admin');
 
@@ -314,6 +315,45 @@ admin.on('text', async (ctx) => {
                     await ctx.reply('Ошибка при поиске пользователей. Попробуйте снова.');
                 }
             }
+            else if (action.startsWith('search_ticket_')) {
+                if (!ctx.session.waitingForUserInput) return;
+
+                const userId = Number(action.split('_')[2]);
+                const ticketId = ctx.message.text.trim();
+
+                try {
+                    const details = await getTicketDetails(ticketId);
+                    if (!details || details.ticket.user_id !== userId) {
+                        await ctx.reply('Обращение не найдено.');
+                    } else {
+                        const { ticket, files } = details;
+                        const createdAt = ticket.created_at ? new Date(ticket.created_at).toLocaleString('ru-RU') : 'Не указано';
+
+                        await ctx.reply(
+                            `Обращение #${ticket.id}\nОрганизация: ${ticket.organization || 'Не указано'}\nФилиал: ${ticket.branch || 'Не указано'}\nКлассификация: ${ticket.classification}\nДата отправки: ${createdAt}\n\n${ticket.message}`,
+                            {
+                                reply_markup: {
+                                    inline_keyboard: [
+                                        [{ text: 'Скачать архив', callback_data: `download_ticket_${ticket.id}` }],
+                                        [{ text: 'Назад', callback_data: `user_requests_${ticket.user_id}` }]
+                                    ]
+                                }
+                            }
+                        );
+
+                        if (files && files.length) {
+                            for (const file of files) {
+                                const filename = path.basename(file.path);
+                                await ctx.replyWithDocument({ source: Buffer.from(file.data), filename }, { caption: file.title || '' });
+                            }
+                        }
+                    }
+                } catch (err) {
+                    logger.error(`Error searching ticket: ${err.message}`, { stack: err.stack });
+                    await ctx.reply('Ошибка при поиске обращения.');
+                }
+                ctx.session.waitingForUserInput = false;
+            }
             delete ctx.session.action;
         } else if (ctx.session.editScene) {
             const sceneKey = ctx.session.editScene;
@@ -347,3 +387,4 @@ try {
 }
 
 export default admin;
+

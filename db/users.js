@@ -187,7 +187,8 @@ async function getTicketsByUserId(userId) {
     try {
         return await db('tickets')
             .where({ user_id: userId })
-            .orderBy('created_at', 'desc');
+            .orderBy('created_at', 'desc')
+            .limit(10);
     } catch (error) {
         console.error(`Error fetching tickets for user ${userId}: ${error.message}`);
         throw error;
