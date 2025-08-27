@@ -5,7 +5,6 @@ import {
   updateUserRole,
   blockUser,
   deleteUser,
-  selectAllRoleUsers,
   getTicketsByUserId,
   getTicketDetails,
 } from '../../../../db/users.js';
@@ -287,3 +286,4 @@ export default function user_settings(scene) {
     }
   });
 }
+

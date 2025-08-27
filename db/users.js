@@ -1,4 +1,7 @@
 import db from './db.js';
+import logger from '../src/utils/logger.js';
+
+// Создание записи пользователя
 async function createUser(telegramId, username = null, firstName = null, lastName = null, linkChat = null, email = null) {
     try {
         const [user] = await db('users')
@@ -14,7 +17,7 @@ async function createUser(telegramId, username = null, firstName = null, lastNam
             .returning('*');
         return user;
     } catch (error) {
-        console.error(`Error creating user: ${error.message}`);
+        logger.error(`Error creating user: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -28,7 +31,7 @@ async function findUserByTelegramId(telegramId) {
             .orderBy('tickets.created_at', 'desc')
             .first(); // Возвращает пользователя с последними организацией и филиалом
     } catch (error) {
-        console.error(`Error finding user by Telegram ID: ${error.message}`);
+        logger.error(`Error finding user by Telegram ID: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -44,23 +47,7 @@ async function updateUser(telegramId, updates) {
             .returning('*'); // Работает в PostgreSQL, в SQLite возвращался бы только счетчик
         return user;
     } catch (error) {
-        console.error(`Error updating user: ${error.message}`);
-        throw error;
-    }
-}
-
-async function changeRole(telegramId, roleId) {
-    try {
-        const [user] = await db('users')
-            .where({ id_telegram: telegramId })
-            .update({
-                role_id: roleId,
-                dataLastActivity: db.fn.now()
-            })
-            .returning('*');
-        return user;
-    } catch (error) {
-        console.error(`Error changing role: ${error.message}`);
+        logger.error(`Error updating user: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -76,7 +63,7 @@ async function searchUsers(query) {
                     .orWhere(db.raw('id_telegram::text LIKE ?', [`%${query}%`])); // Cast bigint to text
             });
     } catch (error) {
-        console.error(`Error searching users: ${error.message}`);
+        logger.error(`Error searching users: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -87,16 +74,7 @@ async function getUserDetails(userId) {
             .where({ id: userId })
             .first();
     } catch (error) {
-        console.error(`Error getting user details: ${error.message}`);
-        throw error;
-    }
-}
-
-async function selectAllRoleUsers() {
-    try {
-        return await db('roles').select('*');
-    } catch (error) {
-        console.error(`Error selecting roles: ${error.message}`);
+        logger.error(`Error getting user details: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -112,7 +90,7 @@ async function updateUserRole(userId, roleId) {
             .returning('*');
         return user;
     } catch (error) {
-        console.error(`Error updating user role: ${error.message}`);
+        logger.error(`Error updating user role: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -128,7 +106,7 @@ async function blockUser(userId) {
             .returning('*');
         return user;
     } catch (error) {
-        console.error(`Error blocking user: ${error.message}`);
+        logger.error(`Error blocking user: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -140,45 +118,7 @@ async function deleteUser(userId) {
             .del(); // В SQLite нет RETURNING для DELETE, но в PostgreSQL можно добавить .returning('*')
         return { success: count > 0 };
     } catch (error) {
-        console.error(`Error deleting user: ${error.message}`);
-        throw error;
-    }
-}
-
-async function createTicket(userId, message, organization, branch = null, classification) {
-    try {
-        const [ticket] = await db('tickets')
-            .insert({
-                user_id: userId,
-                message,
-                organization,
-                branch,
-                classification,
-                created_at: db.fn.now()
-            })
-            .returning('*');
-        return ticket;
-    } catch (error) {
-        console.error(`Error creating ticket: ${error.message}`);
-        throw error;
-    }
-}
-
-async function createFile(ticketId, title, expansion, size, path) {
-    try {
-        const [file] = await db('files') // Было 'tickets', должно быть 'files'
-        .insert({
-            ticket_id: ticketId,
-            title,
-            expansion,
-            size,
-            path,
-            created_at: db.fn.now()
-        })
-        .returning('*');
-        return file;
-    } catch (error) {
-        console.error(`Error creating file: ${error.message}`);
+        logger.error(`Error deleting user: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -190,7 +130,7 @@ async function getTicketsByUserId(userId) {
             .orderBy('created_at', 'desc')
             .limit(10);
     } catch (error) {
-        console.error(`Error fetching tickets for user ${userId}: ${error.message}`);
+        logger.error(`Error fetching tickets for user ${userId}: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -202,7 +142,7 @@ async function getTicketDetails(ticketId) {
         const files = await db('files').where({ ticket_id: ticketId });
         return { ticket, files };
     } catch (error) {
-        console.error(`Error getting ticket details: ${error.message}`);
+        logger.error(`Error getting ticket details: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -219,7 +159,7 @@ async function getStatistics() {
             fileCount: Number(files.count)
         };
     } catch (error) {
-        console.error(`Error getting statistics: ${error.message}`);
+        logger.error(`Error getting statistics: ${error.message}`, { stack: error.stack });
         throw error;
     }
 }
@@ -228,15 +168,11 @@ export {
     createUser,
     findUserByTelegramId,
     updateUser,
-    changeRole,
     searchUsers,
     getUserDetails,
-    selectAllRoleUsers,
     updateUserRole,
     blockUser,
     deleteUser,
-    createTicket,
-    createFile,
     getTicketsByUserId,
     getTicketDetails,
     getStatistics

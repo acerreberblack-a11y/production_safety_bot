@@ -16,18 +16,18 @@ import userCheckMiddleware from './middlewares/checkUser.js';
 import { startReportEmailSender } from './utils/emailConfig.js';
 import ConfigLoader from './utils/configLoader.js';
 
+// Загружаем переменные окружения
 dotenv.config();
 
-let { BOT_TOKEN, PROXY_URL } = process.env;
+const { BOT_TOKEN, PROXY_URL } = process.env;
 
-BOT_TOKEN = '8143686943:AAHp_hbVpYhDYdHVCfqM4Rl_iTvkrspWsZU';
-
+// Список доступных сцен
 const scenes = [welcome, description, ticketType, emailAuth, organization, classification, reportIssue, admin];
 
-// Initialize stage with scenes
+// Инициализация stage с указанными сценами
 const stage = new Scenes.Stage(scenes, { ttl: 600 });
 
-// Validate and log scenes
+// Проверяем корректность сцен и логируем регистрацию
 scenes.forEach((scene, index) => {
   if (!(scene instanceof Scenes.BaseScene)) {
     logger.error(`Invalid scene at index ${index}:`, { scene });
@@ -36,6 +36,7 @@ scenes.forEach((scene, index) => {
   logger.info(`Scene ${scene.id} registered`);
 });
 
+// Основной класс Telegram-бота
 class Bot {
   constructor(token = BOT_TOKEN) {
     if (!token) {
@@ -53,6 +54,7 @@ class Bot {
   }
 
   setupMiddleware() {
+    // Настройка локального хранилища сессий
     const localSession = new LocalSession({
       database: 'sessions_10.json',
       property: 'session',
@@ -65,13 +67,15 @@ class Bot {
       getSessionKey: (ctx) => ctx.chat?.id?.toString()
     });
 
+    // Подключаем проверки пользователя, сессии и сцены
     this.bot.use(userCheckMiddleware);
     this.bot.use(localSession.middleware());
-        this.bot.use(stage.middleware());
+    this.bot.use(stage.middleware());
+
+    // Команда возврата в главное меню
     this.bot.command('menu', async (ctx) => {
       try {
         await ctx.scene.leave();
-        ctx.session = null;
         ctx.session = { messages: [], sceneData: {} };
         await ctx.scene.enter('welcome');
         logger.info(`User ${ctx.from.id} returned to welcome menu`);
@@ -83,7 +87,7 @@ class Bot {
   }
 
   registerHandlers() {
-    // Start command
+    // Обработка команды /start
     this.bot.start(async (ctx) => {
       try {
         ctx.session = { messages: [], sceneData: {} };
@@ -95,7 +99,7 @@ class Bot {
       }
     });
 
-    // Text message fallback
+    // Обработка обычных текстовых сообщений
     this.bot.on('text', async (ctx) => {
       try {
         if (!ctx.session.sceneData) {
@@ -109,7 +113,7 @@ class Bot {
       }
     });
 
-    // Admin command
+    // Переход в административный режим
     this.bot.command('admin', async (ctx) => {
       try {
         const config = await ConfigLoader.loadConfig();
@@ -126,13 +130,14 @@ class Bot {
       }
     });
 
-    // Error handling
+    // Глобальная обработка ошибок
     this.bot.catch((error, ctx) => {
       logger.error(`Global error: ${error.message}`, { stack: error.stack, user: ctx.from?.id });
       ctx.reply('Something went wrong. Please try again later.');
     });
   }
 
+  // Запуск бота и обработка завершения работы
   start() {
     this.bot
       .launch()
@@ -145,6 +150,7 @@ class Bot {
     this.handleShutdown();
   }
 
+  // Завершаем работу бота по сигналам ОС
   handleShutdown() {
     const stop = (signal) => {
       logger.warn(`Bot stopped (${signal})`);

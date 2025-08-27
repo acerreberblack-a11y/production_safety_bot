@@ -327,7 +327,7 @@ async function saveTicketFromFolder(telegramId, ticketFolder) {
 
     return { ticket, user };
   } catch (error) {
-    console.error(`Error saving ticket: ${error.message}`);
+    logger.error(`Error saving ticket: ${error.message}`, { stack: error.stack });
     throw error;
   }
 }
