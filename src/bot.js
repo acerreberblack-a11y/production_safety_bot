@@ -6,6 +6,7 @@ import { Redis as RedisStore } from '@telegraf/session/redis';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 
 import logger from './utils/logger.js';
+import handleError from './utils/errorHandler.js';
 
 import welcome from './controllers/welcome/index.js';
 import description from './controllers/description/index.js';
@@ -135,9 +136,7 @@ export class Bot {
         const { id: userId } = ctx.from || {};
         logger.info(`User ${userId} started bot (session purged & reinitialized)`);
       } catch (error) {
-        logger.error(`Early /start handler error: ${error.message}`, { stack: error.stack });
-        // eslint-disable-next-line no-void
-        void ctx.reply('An error occurred. Please try again.');
+        await handleError(ctx, error);
       }
       return undefined; // не пропускаем дальше
     });
@@ -163,9 +162,7 @@ export class Bot {
         const { id: userId } = ctx.from || {};
         logger.info(`User ${userId} returned to welcome (session purged & reinitialized)`);
       } catch (error) {
-        logger.error(`Menu handler error: ${error.message}`, { stack: error.stack });
-        // eslint-disable-next-line no-void
-        void ctx.reply('An error occurred. Please try again.');
+        await handleError(ctx, error);
       }
     });
   }
@@ -189,9 +186,7 @@ export class Bot {
         const { id: userId } = ctx.from || {};
         logger.info(`User ${userId} entered welcome scene`);
       } catch (error) {
-        logger.error(`Text handler error: ${error.message}`, { stack: error.stack });
-        // eslint-disable-next-line no-void
-        void ctx.reply('An error occurred. Please try again.');
+        await handleError(ctx, error);
       }
     });
 
@@ -210,18 +205,13 @@ export class Bot {
         await ctx.scene.enter('admin');
         logger.info(`User ${userId} entered admin scene`);
       } catch (error) {
-        logger.error(`Admin handler error: ${error.message}`, { stack: error.stack });
-        // eslint-disable-next-line no-void
-        void ctx.reply('An error occurred. Please try again.');
+        await handleError(ctx, error);
       }
     });
 
     // Глобальная обработка ошибок
-    this.bot.catch((error, ctx) => {
-      const { id: userId } = ctx.from || {};
-      logger.error(`Global error: ${error.message}`, { stack: error.stack, user: userId });
-      // eslint-disable-next-line no-void
-      void ctx.reply('Something went wrong. Please try again later.');
+    this.bot.catch(async (error, ctx) => {
+      await handleError(ctx, error, 'Something went wrong. Please try again later.');
     });
   }
 
