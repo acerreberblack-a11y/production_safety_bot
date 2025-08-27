@@ -19,6 +19,7 @@ import admin from './controllers/admin/index.js';
 
 import userCheckMiddleware from './middlewares/checkUser.js';
 import spamProtection from './middlewares/spamProtection.js';
+import forceHtml from './middlewares/forceHtml.js';
 
 import { startReportEmailSender } from './utils/emailConfig.js';
 import ConfigLoader from './utils/configLoader.js';
@@ -94,6 +95,9 @@ export class Bot {
   }
 
   setupMiddleware() {
+    // 0) принудительное использование HTML
+    this.bot.use(forceHtml());
+
     // 1) сессии
     this.bot.use(
       session({
