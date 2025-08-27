@@ -24,7 +24,7 @@ reportIssue.enter(async (ctx) => {
             `Максимум ${MAX_FILES} файлов, размер каждого файла не более 20 МБ, общий объем не более 24 МБ.\n\nКогда закончите, отправьте сообщение с текстом "Готово" или нажмите на кнопку ниже.`,
             {
                 reply_markup: {
-                    keyboard: [['Готово'], ['Назад']],
+                    keyboard: [['Готово'], ['Назад'], ['Отменить заполнение']],
                     resize_keyboard: true,
                     one_time_keyboard: true
                 }
@@ -47,6 +47,30 @@ reportIssue.enter(async (ctx) => {
 // Обработка текстового ввода
 reportIssue.on('text', async (ctx) => {
     const text = ctx.message.text;
+
+    if (text === 'Отменить заполнение') {
+        try {
+            delete ctx.session.issueData;
+            delete ctx.session.selectedOrg;
+            delete ctx.session.selectedBranch;
+            delete ctx.session.selectedClassification;
+            delete ctx.session.ticketType;
+            delete ctx.session.classifications;
+            delete ctx.session.waitingForClassification;
+            delete ctx.session.waitingForBranch;
+            delete ctx.session.waitingForOrg;
+            await ctx.reply('Заполнение обращения было отменено.', {
+                reply_markup: { remove_keyboard: true }
+            });
+            await ctx.scene.enter('welcome');
+        } catch (error) {
+            logger.error(`Error in cancel action: ${error.message}`);
+            await ctx.reply('Извините, произошла ошибка', {
+                reply_markup: { remove_keyboard: true }
+            });
+        }
+        return;
+    }
 
     if (text === 'Назад') {
         try {

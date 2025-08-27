@@ -79,6 +79,13 @@ classification.on('text', async (ctx) => {
         try {
             delete ctx.session.waitingForBranch;
             delete ctx.session.selectedOrg;
+            delete ctx.session.selectedBranch;
+            delete ctx.session.selectedClassification;
+            delete ctx.session.issueData;
+            delete ctx.session.ticketType;
+            delete ctx.session.classifications;
+            delete ctx.session.waitingForClassification;
+            delete ctx.session.waitingForOrg;
 
             await ctx.reply(`Заполнение обращения было отменено.`, {
                     reply_markup: { remove_keyboard: true }
