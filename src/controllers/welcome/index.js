@@ -46,6 +46,21 @@ function buildTicketsKeyboard(page, totalPages) {
 
     return { reply_markup: { inline_keyboard: keyboard } };
 }
+function formatProfileMessage(user, telegramId) {
+    const organization = user?.organization || 'Не указано';
+    const branch = user?.branch || 'Не указан';
+    const email = user?.email || 'Не указан';
+    const status = user?.email ? 'Подтвержден' : 'Не подтвержден';
+
+    return (
+        `Ваш профиль:\n` +
+        `ID: ${telegramId}\n` +
+        `Организация: ${organization}\n` +
+        `Филиал: ${branch}\n` +
+        `Email: ${email}\n` +
+        `Статус: ${status}`
+    );
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -89,20 +104,15 @@ welcome.enter(async (ctx) => {
             [
                 { text: 'Создать обращение', callback_data: 'create_ticket' },
                 { text: 'Мои обращения', callback_data: 'my_tickets' }
+            ],
+            [
+                { text: 'Профиль', callback_data: 'profile' }
             ]
         ];
 
-        // Если пользователь — администратор (role_id = 3), добавляем кнопку "Управление"
-        if (ctx.session.user?.role_id === 2) { // Предполагается, что поле называется role_id
-            keyboard = [
-                [
-                    { text: 'Создать обращение', callback_data: 'create_ticket' },
-                    { text: 'Мои обращения', callback_data: 'my_tickets' }
-                ],
-                [
-                    { text: 'Управление', callback_data: 'manager_admin' }
-                ]
-            ];
+        // Если пользователь — администратор (role_id = 2), добавляем кнопку "Управление"
+        if (ctx.session.user?.role_id === 2) {
+            keyboard.push([{ text: 'Управление', callback_data: 'manager_admin' }]);
             logger.debug('Admin keyboard applied for user:', ctx.session.user.id_telegram);
         }
 
@@ -217,6 +227,38 @@ welcome.action('my_tickets', async (ctx) => {
     }
 });
 
+welcome.action('profile', async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        const user = ctx.session.user;
+        const message = formatProfileMessage(user, ctx.from.id);
+
+        const buttons = [];
+        if (user?.email) {
+            buttons.push([{ text: 'Изменить email', callback_data: 'change_email' }]);
+        } else {
+            buttons.push([{ text: 'Подтвердить аккаунт', callback_data: 'confirm_account' }]);
+        }
+        buttons.push([{ text: 'В меню', callback_data: 'back_to_welcome' }]);
+
+        await ctx.reply(message, { reply_markup: { inline_keyboard: buttons } });
+        logger.info(`User ${ctx.from.id} viewed profile`);
+    } catch (error) {
+        logger.error(`Error in profile action: ${error.message}`);
+        await ctx.answerCbQuery('Не удалось показать профиль', { show_alert: true });
+    }
+});
+
+welcome.action(['confirm_account', 'change_email'], async (ctx) => {
+    try {
+        await ctx.answerCbQuery();
+        ctx.session.emailFlow = 'profile';
+        await ctx.scene.enter('emailAuth');
+    } catch (error) {
+        logger.error(`Error starting email confirmation: ${error.message}`);
+        await ctx.reply('Не удалось перейти к подтверждению.');
+    }
+});
 welcome.action('tickets_next', async (ctx) => {
     try {
         await ctx.answerCbQuery();

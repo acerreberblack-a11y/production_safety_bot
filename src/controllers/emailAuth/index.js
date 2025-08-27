@@ -15,8 +15,12 @@ emailAuth.enter(async (ctx) => {
         const user = await findUserByTelegramId(telegramId);
         if (!user) throw new Error('User not found');
 
-        if (user.email) {
-            await ctx.reply(`Авторизация уже выполнена.\nВаш email: ${user.email}.`, { parse_mode: 'HTML', });
+        ctx.session.user = user;
+
+        const fromProfile = ctx.session.emailFlow === 'profile';
+
+        if (user.email && !fromProfile) {
+            await ctx.reply(`Авторизация уже выполнена.\nВаш email: ${user.email}.`, { parse_mode: 'HTML' });
             ctx.session.ticketType = user.email;
             await ctx.scene.enter('organization');
             return;
@@ -26,7 +30,11 @@ emailAuth.enter(async (ctx) => {
         ctx.session.authCode = null;
         const config = await ConfigLoader.loadConfig();
         const authConfig = config.controllers?.emailAuth;
-        await ctx.reply(authConfig?.text || 'Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.', {
+        const text = fromProfile
+            ? (authConfig?.textProfile || 'Для подтверждения аккаунта введите ваш email.')
+            : (authConfig?.text || 'Для продолжения работы введите ваш email. Я использую его для идентификации вашего аккаунта.');
+
+        await ctx.reply(text, {
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: [[{ text: 'Отменить заполнение', callback_data: 'cancel_auth' }]] },
         });
@@ -66,11 +74,21 @@ emailAuth.on('text', async (ctx) => {
         } else {
             if (enteredText === ctx.session.authCode) {
                 await updateUser(telegramId, { email: ctx.session.email });
+                ctx.session.user = { ...ctx.session.user, email: ctx.session.email };
+
                 await ctx.reply('Готово! Авторизация прошла успешно.', { parse_mode: 'HTML' });
-                await ctx.scene.enter('organization');
-                ctx.session.ticketType = ctx.session.email
-                delete ctx.session.authCode;
-                delete ctx.session.email;
+
+                if (ctx.session.emailFlow === 'profile') {
+                    delete ctx.session.emailFlow;
+                    delete ctx.session.authCode;
+                    delete ctx.session.email;
+                    await ctx.scene.enter('welcome');
+                } else {
+                    await ctx.scene.enter('organization');
+                    ctx.session.ticketType = ctx.session.email;
+                    delete ctx.session.authCode;
+                    delete ctx.session.email;
+                }
             } else {
                 await ctx.reply('Неверный код.', {
                     parse_mode: 'HTML',
@@ -109,6 +127,7 @@ emailAuth.action('cancel_auth', async (ctx) => {
         delete ctx.session.email;
         delete ctx.session.authCode;
         delete ctx.session.ticketType;
+        delete ctx.session.emailFlow;
         await ctx.reply('Заполнение обращения было отменено.', {
             reply_markup: { remove_keyboard: true }
         });
