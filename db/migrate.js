@@ -1,5 +1,4 @@
-import db from './db.js';
-
+import db from './client.js';
 async function runMigrationsAndSeeds() {
   try {
     await db.migrate.latest();
