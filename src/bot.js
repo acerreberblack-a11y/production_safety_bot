@@ -13,6 +13,7 @@ import classification from './controllers/classification/index.js';
 import reportIssue from './controllers/reportIssue/index.js';
 import admin from './controllers/admin/index.js';
 import userCheckMiddleware from './middlewares/checkUser.js';
+import spamProtection from './middlewares/spamProtection.js';
 import { startReportEmailSender } from './utils/emailConfig.js';
 import ConfigLoader from './utils/configLoader.js';
 
@@ -68,7 +69,8 @@ class Bot {
       getSessionKey: (ctx) => ctx.chat?.id?.toString()
     });
 
-    // Подключаем проверки пользователя, сессии и сцены
+    // Подключаем защиты от спама, проверки пользователя, сессию и сцены
+    this.bot.use(spamProtection());
     this.bot.use(userCheckMiddleware);
     this.bot.use(localSession.middleware());
     this.bot.use(stage.middleware());
