@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+import '../env.js';
 import { Telegraf, Scenes } from 'telegraf';
 import LocalSession from 'telegraf-session-local';
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -16,9 +16,6 @@ import userCheckMiddleware from './middlewares/checkUser.js';
 import spamProtection from './middlewares/spamProtection.js';
 import { startReportEmailSender } from './utils/emailConfig.js';
 import ConfigLoader from './utils/configLoader.js';
-
-// Загружаем переменные окружения
-dotenv.config();
 
 const { BOT_TOKEN, PROXY_URL } = process.env;
 
