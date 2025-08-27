@@ -251,7 +251,6 @@ const sendReportsFromFolder = async () => {
             for (const ticketDir of ticketDirs) {
                 if (!ticketDir.isDirectory()) continue;
                 const ticketPath = path.join(userPath, ticketDir.name);
-
                 try {
                     const issueFile = path.join(ticketPath, 'issue.json');
                     const issueData = JSON.parse(await fs.readFile(issueFile, 'utf8'));
