@@ -94,6 +94,7 @@ welcome.enter(async (ctx) => {
 
         const config = await ConfigLoader.loadConfig();
         const welcomeConfig = config.controllers?.welcome;
+        const admins = config.administrators || [];
 
         if (!welcomeConfig || !welcomeConfig.text) {
             throw new Error('Welcome configuration or text is missing');
@@ -110,10 +111,10 @@ welcome.enter(async (ctx) => {
             ]
         ];
 
-        // Если пользователь — администратор (role_id = 2), добавляем кнопку "Управление"
-        if (ctx.session.user?.role_id === 2) {
+        // Если пользователь является администратором, добавляем кнопку "Управление"
+        if (admins.includes(chatId)) {
             keyboard.push([{ text: 'Управление', callback_data: 'manager_admin' }]);
-            logger.debug('Admin keyboard applied for user:', ctx.session.user.id_telegram);
+            logger.debug('Admin keyboard applied for user:', chatId);
         }
 
         const messageOptions = {
@@ -306,6 +307,13 @@ welcome.action('back_to_welcome', async (ctx) => {
 
 welcome.action('manager_admin', async (ctx) => {
     try {
+        const config = await ConfigLoader.loadConfig();
+        const admins = config.administrators || [];
+        if (!admins.includes(ctx.from.id)) {
+            await ctx.answerCbQuery('Недостаточно прав', { show_alert: true });
+            return;
+        }
+
         const lastMessage = ctx.session.lastBotMessage;
         if (!lastMessage) {
             throw new Error('No last message found in session');

@@ -115,6 +115,9 @@
       "priority": 2
     }
   },
+  "administrators": [
+    123456789
+  ],
   "general": {
     "email": {
       "host": "smtp.yandex.ru",
