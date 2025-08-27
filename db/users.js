@@ -187,9 +187,22 @@ async function getTicketsByUserId(userId) {
     try {
         return await db('tickets')
             .where({ user_id: userId })
-            .orderBy('created_at', 'desc');
+            .orderBy('created_at', 'desc')
+            .limit(10);
     } catch (error) {
         console.error(`Error fetching tickets for user ${userId}: ${error.message}`);
+        throw error;
+    }
+}
+
+async function getTicketDetails(ticketId) {
+    try {
+        const ticket = await db('tickets').where({ id: ticketId }).first();
+        if (!ticket) return null;
+        const files = await db('files').where({ ticket_id: ticketId });
+        return { ticket, files };
+    } catch (error) {
+        console.error(`Error getting ticket details: ${error.message}`);
         throw error;
     }
 }
@@ -225,5 +238,6 @@ export {
     createTicket,
     createFile,
     getTicketsByUserId,
+    getTicketDetails,
     getStatistics
 };
