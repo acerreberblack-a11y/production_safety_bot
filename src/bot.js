@@ -148,6 +148,21 @@ export class Bot {
     this.bot.use(spamProtection());
     this.bot.use(userCheckMiddleware);
 
+    // 5) Проверяем истечение времени жизни сессии или сцены
+    this.bot.use(async (ctx, next) => {
+      const currentScene = ctx.session?.__scenes?.current;
+      if (!currentScene) {
+        if (ctx.callbackQuery) {
+          await ctx.answerCbQuery().catch(() => {});
+        }
+        await ctx.scene.enter('welcome');
+        const { id: userId } = ctx.from || {};
+        logger.info(`User ${userId} redirected to welcome (session/scene expired)`);
+        return;
+      }
+      return next();
+    });
+
     // /menu — вернуться в главное, тоже чистим запись в Redis
     this.bot.command('menu', async (ctx) => {
       try {
